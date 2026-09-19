@@ -1,52 +1,51 @@
 import { useState } from "react";
-import { checkSystem, Category } from "./api.js";
+import { RequesterProvider, useRequester } from "./context/RequesterContext";
+import { RequesterSelection } from "./components/RequesterSelection";
+import { AppShell } from "./components/AppShell";
+import { CreateTicket } from "./components/CreateTicket";
+import { MyTickets } from "./components/MyTickets";
+import { RequesterTicketDetail } from "./components/RequesterTicketDetail";
+import "./theme/tokens.css";
 
-type UiState = "idle" | "loading" | "success" | "error";
+type Route =
+  | { name: "my-tickets" }
+  | { name: "create-ticket" }
+  | { name: "ticket-detail"; id: number };
 
-export default function App() {
-  const [state, setState] = useState<UiState>("idle");
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [errorMessage, setErrorMessage] = useState("");
+function AppInner() {
+  const { requesterId } = useRequester();
+  const [route, setRoute] = useState<Route>({ name: "my-tickets" });
 
-  async function handleCheck() {
-    setState("loading");
-    try {
-      const result = await checkSystem();
-      setCategories(result.categories);
-      setState("success");
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Unknown error");
-      setState("error");
-    }
+  // AC-02: no requester selected → Requester Selection screen.
+  if (!requesterId) {
+    return <RequesterSelection onContinue={() => setRoute({ name: "my-tickets" })} />;
   }
 
   return (
-    <div className="container py-5" style={{ maxWidth: 640 }}>
-      <h1 className="h3 mb-4">
-        TokTickIT <span className="text-success">IT Service Desk</span>
-      </h1>
-
-      <button className="btn btn-success" onClick={handleCheck} disabled={state === "loading"}>
-        {state === "loading" ? "Loading…" : "Check System"}
-      </button>
-
-      {state === "success" && (
-        <div className="mt-4">
-          <p className="text-success fw-bold">Online</p>
-          <ul>
-            {categories.map((cat) => (
-              <li key={cat.id}>{cat.name}</li>
-            ))}
-          </ul>
-        </div>
+    <AppShell
+      active={route.name === "create-ticket" ? "create-ticket" : "my-tickets"}
+      onNavigate={(page) => setRoute({ name: page })}
+    >
+      {route.name === "my-tickets" && (
+        <MyTickets
+          onOpen={(id) => setRoute({ name: "ticket-detail", id })}
+          onCreate={() => setRoute({ name: "create-ticket" })}
+        />
       )}
-
-      {state === "error" && (
-        <div className="mt-4 text-danger">
-          <p className="fw-bold">Offline</p>
-          <p>{errorMessage}</p>
-        </div>
+      {route.name === "create-ticket" && (
+        <CreateTicket onCreated={(_num, id) => setRoute({ name: "ticket-detail", id })} />
       )}
-    </div>
+      {route.name === "ticket-detail" && (
+        <RequesterTicketDetail ticketId={route.id} onBack={() => setRoute({ name: "my-tickets" })} />
+      )}
+    </AppShell>
+  );
+}
+
+export default function App() {
+  return (
+    <RequesterProvider>
+      <AppInner />
+    </RequesterProvider>
   );
 }

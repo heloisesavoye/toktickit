@@ -1,13 +1,14 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ES2022",
-    "moduleResolution": "bundler",
-    "esModuleInterop": true,
-    "strict": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "outDir": "dist",
+    "rootDir": "src",
+    "strict": true,
+    "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "resolveJsonModule": true
   },
-  "include": ["src", "prisma", "tests"]
+  "include": ["src", "tests"]
 }
