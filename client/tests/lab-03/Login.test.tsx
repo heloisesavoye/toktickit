@@ -25,7 +25,10 @@ describe("Login", () => {
     render(<Login />);
 
     await userEvent.type(screen.getByLabelText(/Email address/i), "requester@example.com");
-    await userEvent.type(screen.getByLabelText(/Password/i), "TestDev123!");
+    // Anchored: an unanchored /Password/i also matches the "Show password"
+    // toggle button's aria-label and getByLabelText then throws for finding
+    // two matches.
+    await userEvent.type(screen.getByLabelText(/^Password/i), "TestDev123!");
     await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
     expect(mockLogin).toHaveBeenCalledWith("requester@example.com", "TestDev123!");

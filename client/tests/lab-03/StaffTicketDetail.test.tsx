@@ -75,18 +75,24 @@ describe("StaffTicketDetail", () => {
     expect(screen.getByText(/not visible to Requester/i)).toBeInTheDocument();
   });
 
-  // BR-16/BR-17: an invalid transition shows the server's error message
+  // BR-16/BR-17: an invalid transition shows the server's error message.
+  // The dropdown only ever lists transitions that are valid from the
+  // ticket's *current* status (see STATUS_OPTIONS_FOR), so "RESOLVED" is
+  // never an option while the ticket is NEW — selecting it isn't possible
+  // through this UI. To exercise the error-handling path we pick an option
+  // the dropdown does offer ("OPEN") and simulate the server rejecting it
+  // anyway (e.g. another staff member changed the ticket's status first).
   it("shows the server's error when a status transition is rejected", async () => {
     (api.getStaffTicket as any).mockResolvedValue({ data: baseTicket });
     (api.setStatus as any).mockRejectedValue(
-      new ApiError(409, "INVALID_TRANSITION", undefined, "Cannot move from NEW to RESOLVED.")
+      new ApiError(409, "INVALID_TRANSITION", undefined, "Cannot move from NEW to OPEN.")
     );
     render(<StaffTicketDetail ticketId={7} onBack={vi.fn()} />);
 
     const statusSelect = await screen.findByLabelText(/Current Status/i);
-    await userEvent.selectOptions(statusSelect, "RESOLVED");
+    await userEvent.selectOptions(statusSelect, "OPEN");
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/Cannot move from NEW to RESOLVED/i);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Cannot move from NEW to OPEN/i);
   });
 
   it("posts a new public comment and clears the draft", async () => {
