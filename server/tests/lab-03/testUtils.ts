@@ -5,7 +5,27 @@ import { hashPassword } from "../../src/lib/auth.js";
 
 // Shared fixtures for Lab 3 API tests (auth, staff, admin). Requires a real
 // test database (set DATABASE_URL to a disposable DB before running `npm test`).
+//
+// Safety guard: this function truncates every table. Running it against the
+// same database used by `npm run dev`/`npm run seed` silently wipes your
+// seeded dev accounts. Refuse to run unless DATABASE_URL clearly points at a
+// throwaway test database (name contains "test"), so a missing/misconfigured
+// server/.env.test fails loudly instead of quietly destroying dev data.
+function assertTestDatabase() {
+  const url = process.env.DATABASE_URL ?? "";
+  if (!/test/i.test(url)) {
+    throw new Error(
+      "resetDatabase() refused to run: DATABASE_URL does not look like a test " +
+        "database (expected the database name to contain \"test\"). Copy " +
+        "server/.env.test.example to server/.env.test and point it at a " +
+        "disposable database before running `npm test` — otherwise this " +
+        "wipes the accounts created by `npm run seed`."
+    );
+  }
+}
+
 export async function resetDatabase() {
+  assertTestDatabase();
   await prisma.publicComment.deleteMany();
   await prisma.internalNote.deleteMany();
   await prisma.attachment.deleteMany();
