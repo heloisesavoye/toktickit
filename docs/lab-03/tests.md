@@ -11,8 +11,8 @@ produced, and none is skipped, disabled, or commented out on the final `main` br
 
 | Test ID | Type | Requirement / AC | What It Tests | Expected Result | Automated Test File | Status |
 |---|---|---|---|---|---|---|
-| UNIT-01 | Unit | BR-07/BR-08 | Password hashing + policy validator | bcrypt hash never equals plaintext; weak passwords rejected | server/tests/lab-03/password.unit.test.ts | Planned |
-| UNIT-02 | Unit | BR-16 | Status transition matrix helper | Every cell in specification.md §9 matches allowed/rejected | server/tests/lab-03/status-transitions.unit.test.ts | Planned |
+| UNIT-01 | Unit | BR-07/BR-08 | Password hashing + policy validator | bcrypt hash never equals plaintext; weak passwords rejected | server/tests/lab-03/password.unit.test.ts | Pending run |
+| UNIT-02 | Unit | BR-16 | Status transition matrix helper | Every cell in specification.md §9 matches allowed/rejected | server/tests/lab-03/status-transitions.unit.test.ts | Pending run |
 | API-01 | API | AC-01 | POST /api/auth/login with valid credentials | 200; session cookie set; role/user returned | server/tests/lab-03/auth.api.test.ts | Planned |
 | API-02 | API | AC-05 | POST /api/auth/login wrong password / unknown email | 401 INVALID_CREDENTIALS, identical message both cases | server/tests/lab-03/auth.api.test.ts | Planned |
 | API-03 | API | AC-06 | POST /api/auth/login for inactive user with correct password | 401 INVALID_CREDENTIALS, same message as API-02 | server/tests/lab-03/auth.api.test.ts | Planned |
@@ -49,13 +49,13 @@ produced, and none is skipped, disabled, or commented out on the final `main` br
 | UI-07 | UI | — | Internal Notes panel styling vs Public Comments panel | Distinct background/label present; snapshot-level check | client/tests/lab-03/StaffTicketDetail.test.tsx | Planned |
 | UI-08 | UI | AC-19 | Admin edit panel for the sole active Administrator | Deactivate button disabled with explanatory tooltip | client/tests/lab-03/UserManagement.test.tsx | Planned |
 | UI-09 | UI | AC-17 | Create User form submit with a duplicate email (mocked 409) | Field-level "email already in use" error shown; panel stays open | client/tests/lab-03/UserManagement.test.tsx | Planned |
-| RESP-01 | Responsive/Visual | AC-22 | Playwright screenshots of Login, Ticket Queue, Ticket Detail, User Management at 375/834/1280px | No horizontal scroll; usable stacked layout at 375px | e2e/lab-03/visual.spec.ts | Planned |
-| E2E-01 | E2E | AC-01, AC-02 | Log in with an initial password → forced change screen → land in app | Ends on the correct role's home screen | e2e/lab-03/authentication.spec.ts | Planned |
-| E2E-02 | E2E | AC-07 | Log in, log out, use browser back button, attempt a protected action | Redirected to Login; action blocked | e2e/lab-03/authentication.spec.ts | Planned |
-| E2E-03 | E2E | AC-08, AC-10, AC-13 | IT Staff claims a ticket, sets IT Priority + status, posts a comment and a note | Requester sees the comment, never the note; status/priority persist | e2e/lab-03/staff-ticket-flow.spec.ts | Planned |
-| E2E-04 | E2E | AC-11 | Attempt an invalid status transition via the UI on a stale page state | Safe conflict message shown, no crash, ticket unchanged | e2e/lab-03/staff-ticket-flow.spec.ts | Planned |
-| E2E-05 | E2E | AC-17, AC-18 | Administrator creates a user, sets a new initial password, that user logs in | Forced change on first login for both flows | e2e/lab-03/user-administration.spec.ts | Planned |
-| E2E-06 | E2E | AC-19 | Administrator attempts to deactivate their own account via the UI | Action blocked with explanatory message, no API call sent | e2e/lab-03/user-administration.spec.ts | Planned |
+| RESP-01 | Responsive/Visual | AC-22 | Every E2E-01..06 screenshot captured across all 3 Playwright projects (desktop 1280×800 Chromium, tablet iPad gen7 WebKit, mobile iPhone 13 WebKit) | No horizontal scroll; usable stacked/table layout at each width; files under `artifacts/lab-03/screenshots/<screen>/<scenario>/<project>.png` matching ui-spec.md §10 | e2e/lab-03/authentication.spec.ts, e2e/lab-03/staff-ticket-flow.spec.ts, e2e/lab-03/user-administration.spec.ts | Pending run |
+| E2E-01 | E2E | AC-01, AC-02 | Log in with an initial password → forced change screen → land in app | Ends on the correct role's home screen | e2e/lab-03/authentication.spec.ts | Pending run |
+| E2E-02 | E2E | AC-07 | Log in, log out, reload (simulating browser back/bookmark), attempt access | Redirected to Login; action blocked | e2e/lab-03/authentication.spec.ts | Pending run |
+| E2E-03 | E2E | AC-08, AC-10, AC-13 | IT Staff claims a ticket, sets IT Priority + status, posts a comment and a note | Comment and note both persist and render in their own panel; status/priority persist | e2e/lab-03/staff-ticket-flow.spec.ts | Pending run |
+| E2E-04 | E2E | AC-11, AC-16 | Direct API call to a Staff-only/Admin-only endpoint using a Requester/IT Staff session cookie (bypassing the UI) | 403 FORBIDDEN in both cases; evidence saved to artifacts/lab-03/api-authorization-evidence.txt | e2e/lab-03/staff-ticket-flow.spec.ts, e2e/lab-03/user-administration.spec.ts | Pending run |
+| E2E-05 | E2E | AC-17, AC-18 | Administrator creates a user (duplicate-email rejected, valid create succeeds), sets a new initial password, that user logs in | Forced change on first login; duplicate email shows field-level error | e2e/lab-03/user-administration.spec.ts | Pending run |
+| E2E-06 | E2E | AC-19 | Administrator attempts to deactivate their own account via the UI | Checkbox disabled with explanatory message, no API call sent | e2e/lab-03/user-administration.spec.ts | Pending run |
 
 ## 3. Acceptance-Criterion Traceability
 | AC | Covered by |
@@ -105,7 +105,9 @@ must read "Pass" (or an honestly documented "Not Implemented"/"Known Failure" wi
 reason) before this file is considered final; none may stay "Planned" at submission._
 
 ## 7. Known Limitations or Deferred Tests
-- Cross-browser visual testing remains limited to Chromium via Playwright, as in Lab 2.
+- E2E/visual coverage runs on 3 Playwright projects (desktop: Chromium, tablet
+  + mobile: WebKit via the iPad gen 7 / iPhone 13 device presets) rather than
+  every real browser engine and device.
 - Email-based session/CSRF hardening beyond `SameSite=Lax` + same-origin checks
   (e.g., double-submit CSRF tokens) is deferred, since Lab 3 explicitly excludes
   MFA/SSO and keeps the client and server on the same origin in development.
