@@ -25,8 +25,9 @@ IT service-desk ticketing app built incrementally across CPE 334 labs.
 6. Tests: `npm test` in `server/` and in `client/`
 7. E2E/responsive screenshots (requires both dev servers running from step 4):
    `npm install && npx playwright install` at the repo root, then
-   `npx playwright test e2e/lab-03/screenshots.spec.ts`. Screenshots land in
-   `artifacts/lab-03/screenshots/`.
+   `npx playwright test e2e/lab-03/`. Screenshots land in
+   `artifacts/lab-03/screenshots/`, and direct-API authorization evidence
+   lands in `artifacts/lab-03/api-authorization-evidence.txt`.
 
 ## Local dev credentials (Lab 3, seeded — never real passwords)
 | Role | Email | Password |
