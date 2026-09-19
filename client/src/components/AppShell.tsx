@@ -1,9 +1,17 @@
 import type { ReactNode } from "react";
-import { useRequester } from "../context/RequesterContext";
+import { useAuth } from "../context/AuthContext";
+import { Badge } from "./ui/Badge";
 
-type Page = "my-tickets" | "create-ticket";
+export type Page = "my-tickets" | "create-ticket" | "staff-queue" | "admin-users";
 
-// ui-spec.md §7: app shell with identity display, active-nav indication, Change Requester.
+const ROLE_BADGE: Record<string, { label: string }> = {
+  REQUESTER: { label: "Requester" },
+  IT_STAFF: { label: "IT Staff" },
+  ADMINISTRATOR: { label: "Administrator" },
+};
+
+// ui-spec.md §4: role-specific nav (FR-07); every route is still enforced
+// server-side regardless of what's rendered here (FR-08).
 export function AppShell({
   active,
   onNavigate,
@@ -13,7 +21,21 @@ export function AppShell({
   onNavigate: (page: Page) => void;
   children: ReactNode;
 }) {
-  const { requesterName, changeRequester } = useRequester();
+  const { user, logout } = useAuth();
+  if (!user) return null;
+
+  const navItems: { page: Page; label: string }[] =
+    user.role === "REQUESTER"
+      ? [
+          { page: "my-tickets", label: "My Tickets" },
+          { page: "create-ticket", label: "+ Create Ticket" },
+        ]
+      : user.role === "IT_STAFF"
+      ? [{ page: "staff-queue", label: "Ticket Queue" }]
+      : [
+          { page: "staff-queue", label: "Ticket Queue" },
+          { page: "admin-users", label: "Admin" },
+        ];
 
   return (
     <div>
@@ -25,29 +47,31 @@ export function AppShell({
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 12,
         }}
       >
         <strong>TokTickIT</strong>
         <nav style={{ display: "flex", gap: 20 }}>
-          <button
-            className="btn-tertiary"
-            style={{ color: active === "my-tickets" ? "white" : "#CDEBDA", fontWeight: active === "my-tickets" ? 700 : 400 }}
-            onClick={() => onNavigate("my-tickets")}
-          >
-            My Tickets
-          </button>
-          <button
-            className="btn-tertiary"
-            style={{ color: active === "create-ticket" ? "white" : "#CDEBDA", fontWeight: active === "create-ticket" ? 700 : 400 }}
-            onClick={() => onNavigate("create-ticket")}
-          >
-            + Create Ticket
-          </button>
+          {navItems.map((item) => (
+            <button
+              key={item.page}
+              className="btn-tertiary"
+              style={{
+                color: active === item.page ? "white" : "#CDEBDA",
+                fontWeight: active === item.page ? 700 : 400,
+              }}
+              onClick={() => onNavigate(item.page)}
+            >
+              {item.label}
+            </button>
+          ))}
         </nav>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span>{requesterName}</span>
-          <button className="btn btn-secondary" onClick={changeRequester}>
-            Change Requester
+          <span>{user.name}</span>
+          <Badge label={ROLE_BADGE[user.role].label} variant="status" />
+          <button className="btn btn-secondary" onClick={() => logout()}>
+            Logout
           </button>
         </div>
       </header>

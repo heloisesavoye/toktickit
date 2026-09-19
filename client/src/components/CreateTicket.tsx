@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../api/client";
-import { useRequester } from "../context/RequesterContext";
+import { useAuth } from "../context/AuthContext";
 import { Button } from "./ui/Button";
 
 type RefData = { id: number; name: string };
@@ -10,7 +10,7 @@ const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf
 
 // Implements Create Ticket per ui-spec.md §9 and api-spec.md POST /api/tickets.
 export function CreateTicket({ onCreated }: { onCreated: (ticketNumber: string, ticketId: number) => void }) {
-  const { requesterId, requesterName } = useRequester();
+  const { user } = useAuth();
   const [refStatus, setRefStatus] = useState<"loading" | "ready" | "error">("loading");
   const [categories, setCategories] = useState<RefData[]>([]);
   const [relatedSystems, setRelatedSystems] = useState<RefData[]>([]);
@@ -87,7 +87,6 @@ export function CreateTicket({ onCreated }: { onCreated: (ticketNumber: string, 
     setSubmitting(true);
     try {
       const res = await api.createTicket({
-        requesterId,
         categoryId,
         relatedSystemId,
         summary: trimmedSummary,
@@ -100,7 +99,7 @@ export function CreateTicket({ onCreated }: { onCreated: (ticketNumber: string, 
       const failedUploads: string[] = [];
       for (const file of files) {
         try {
-          await api.uploadAttachment(ticket.id, requesterId!, file);
+          await api.uploadAttachment(ticket.id, file);
         } catch {
           failedUploads.push(file.name);
         }
@@ -144,7 +143,7 @@ export function CreateTicket({ onCreated }: { onCreated: (ticketNumber: string, 
 
       <div className="field" data-readonly="true">
         <label htmlFor="requester">Requester</label>
-        <input id="requester" value={requesterName ?? ""} readOnly />
+        <input id="requester" value={user?.name ?? ""} readOnly />
       </div>
 
       {apiError && <div className="callout callout-error" role="alert">{apiError}</div>}

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { AppError } from "../middleware/errorHandler.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
 import { generateTicketNumber } from "../lib/ticketNumber.js";
 import {
   validateSummary,
@@ -13,19 +14,17 @@ import {
 
 const router = Router();
 
+// Every route below is a Requester's own ticket workspace (Lab 2, carried
+// over into Lab 3): identity comes from the authenticated session, never
+// from a client-supplied requesterId (FR-09, BR-03, AC-03).
+router.use(requireAuth(), requireRole("REQUESTER"));
+
 // POST /api/tickets — FR-03, FR-04, FR-05, BR-01, BR-02, BR-07..BR-10
 router.post("/", async (req, res, next) => {
   try {
-    const { requesterId, categoryId, relatedSystemId, summary, description, requestedPriority } =
+    const requesterId = req.user!.id;
+    const { categoryId, relatedSystemId, summary, description, requestedPriority } =
       req.body ?? {};
-
-    if (!requesterId) {
-      throw new AppError(400, "VALIDATION_ERROR", { requesterId: "required" });
-    }
-
-    const requester = await prisma.requester.findUnique({ where: { id: Number(requesterId) } });
-    if (!requester) throw new AppError(404, "REQUESTER_NOT_FOUND");
-    if (!requester.isActive) throw new AppError(403, "REQUESTER_INACTIVE"); // BR-05
 
     const fields: Record<string, string> = {};
     const summaryErr = validateSummary(summary);
@@ -55,7 +54,7 @@ router.post("/", async (req, res, next) => {
     const ticket = await prisma.ticket.create({
       data: {
         ticketNumber,
-        requesterId: requester.id,
+        requesterId,
         categoryId: category.id,
         relatedSystemId: relatedSystem.id,
         summary: (summary as string).trim(),
@@ -74,8 +73,7 @@ router.post("/", async (req, res, next) => {
 // GET /api/tickets — FR-06..FR-10, BR-18, BR-19
 router.get("/", async (req, res, next) => {
   try {
-    const requesterId = Number(req.query.requesterId);
-    if (!requesterId) throw new AppError(400, "VALIDATION_ERROR", { requesterId: "required" });
+    const requesterId = req.user!.id;
 
     const page = Math.max(1, Number(req.query.page) || 1);
     const pageSize = Math.min(50, Math.max(1, Number(req.query.pageSize) || 10));
@@ -129,25 +127,47 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-// GET /api/tickets/:id — FR-11, BR-06 (ownership enforced server-side, 404 not 403)
+// GET /api/tickets/:id — FR-11, BR-03 (ownership enforced server-side, 404 not 403)
 router.get("/:id", async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const requesterId = Number(req.query.requesterId);
-    if (!requesterId) throw new AppError(400, "VALIDATION_ERROR", { requesterId: "required" });
+    const requesterId = req.user!.id;
 
     const ticket = await prisma.ticket.findFirst({
       where: { id, requesterId },
       include: {
         category: true,
         relatedSystem: true,
-        requester: true,
+        ticketOwner: { select: { id: true, name: true } },
         attachments: { orderBy: { uploadedAt: "desc" } },
+        comments: { orderBy: { createdAt: "asc" }, include: { author: { select: { name: true, role: true } } } },
       },
     });
     if (!ticket) throw new AppError(404, "TICKET_NOT_FOUND");
 
     res.json({ data: ticket });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/tickets/:id/resolution-flag — FR-10, BR-05, BR-17
+// A Requester may flag their problem as appearing resolved; this never
+// changes currentStatus, which only IT Staff/Administrator may set.
+router.post("/:id/resolution-flag", async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const requesterId = req.user!.id;
+
+    const ticket = await prisma.ticket.findFirst({ where: { id, requesterId } });
+    if (!ticket) throw new AppError(404, "TICKET_NOT_FOUND");
+
+    const updated = await prisma.ticket.update({
+      where: { id },
+      data: { appearsResolved: true },
+    });
+
+    res.json({ data: { appearsResolved: updated.appearsResolved } });
   } catch (err) {
     next(err);
   }

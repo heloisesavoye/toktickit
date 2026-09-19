@@ -13,26 +13,58 @@ enum Priority {
   HIGH
 }
 
+// Lab 3: New/Open/InProgress/WaitingForRequester/Resolved/Closed/Reopened/Cancelled
+// (handout §4.5). PENDING is retired in favor of WAITING_FOR_REQUESTER.
 enum TicketStatus {
   NEW
   OPEN
   IN_PROGRESS
-  PENDING
+  WAITING_FOR_REQUESTER
   RESOLVED
+  CLOSED
+  REOPENED
+  CANCELLED
 }
 
-// Lab 2: temporary Development Requester used for testing only (BR-03).
-// In Lab 3 this becomes the authenticated user; the shape is kept stable on purpose (BR-20).
-model Requester {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  tickets   Ticket[]
+// Lab 3: replaces the Lab 2 Requester table as the single source of identity
+// for all three roles (BR-03, BR-22).
+enum Role {
+  REQUESTER
+  IT_STAFF
+  ADMINISTRATOR
+}
 
+model User {
+  id                     Int       @id @default(autoincrement())
+  name                   String
+  email                  String    @unique
+  passwordHash           String
+  role                   Role
+  isActive               Boolean   @default(true)
+  requiresPasswordChange Boolean   @default(true)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  ticketsRequested Ticket[]        @relation("TicketRequester")
+  ticketsOwned     Ticket[]        @relation("TicketOwner")
+  comments         PublicComment[]
+  notes            InternalNote[]
+  sessions         Session[]
+
+  @@index([role])
   @@index([isActive])
+}
+
+// Server-side session store (BR-09: logout invalidates; BR-26: password reset
+// invalidates a user's other sessions). The signed cookie carries only this id.
+model Session {
+  id        String   @id @default(cuid())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Category {
@@ -50,25 +82,32 @@ model RelatedSystem {
 }
 
 model Ticket {
-  id                Int           @id @default(autoincrement())
-  ticketNumber      String        @unique
+  id                Int             @id @default(autoincrement())
+  ticketNumber      String          @unique
   requesterId       Int
-  requester         Requester     @relation(fields: [requesterId], references: [id])
+  requester         User            @relation("TicketRequester", fields: [requesterId], references: [id])
+  ticketOwnerId     Int?
+  ticketOwner       User?           @relation("TicketOwner", fields: [ticketOwnerId], references: [id])
   categoryId        Int
-  category          Category      @relation(fields: [categoryId], references: [id])
+  category          Category        @relation(fields: [categoryId], references: [id])
   relatedSystemId   Int
-  relatedSystem     RelatedSystem @relation(fields: [relatedSystemId], references: [id])
+  relatedSystem     RelatedSystem   @relation(fields: [relatedSystemId], references: [id])
   summary           String
   description       String
   requestedPriority Priority
   itPriority        Priority?
-  currentStatus     TicketStatus  @default(NEW)
-  ticketDate        DateTime      @default(now())
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  currentStatus     TicketStatus    @default(NEW)
+  appearsResolved   Boolean         @default(false)
+  ticketDate        DateTime        @default(now())
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
   attachments       Attachment[]
+  comments          PublicComment[]
+  notes             InternalNote[]
 
   @@index([requesterId, createdAt])
+  @@index([ticketOwnerId])
+  @@index([currentStatus])
 }
 
 model Attachment {
@@ -86,6 +125,32 @@ model Attachment {
   removalReason  String?
 
   @@index([ticketId])
+}
+
+// Visible to Requester, IT Staff, and Administrator (BR-04). Append-only in Lab 3.
+model PublicComment {
+  id        Int      @id @default(autoincrement())
+  ticketId  Int
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+  authorId  Int
+  author    User     @relation(fields: [authorId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([ticketId, createdAt])
+}
+
+// Visible only to IT Staff and Administrator (BR-04). Append-only in Lab 3.
+model InternalNote {
+  id        Int      @id @default(autoincrement())
+  ticketId  Int
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+  authorId  Int
+  author    User     @relation(fields: [authorId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([ticketId, createdAt])
 }
 
 // Backs BR-01: unique, sequential, backend-generated Ticket Number per year.

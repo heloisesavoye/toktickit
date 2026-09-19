@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeEach, afterAll } from "vitest";
-import request from "supertest";
 import { createApp } from "../../src/app.js";
 import { prisma } from "../../src/lib/prisma.js";
-import { resetDatabase, seedFixtures } from "./testUtils.js";
+import { resetDatabase, seedFixtures, loginAgent } from "./testUtils.js";
 import { generateTicketNumber } from "../../src/lib/ticketNumber.js";
 
 const app = createApp();
@@ -29,10 +28,11 @@ describe("GET /api/tickets", () => {
     await prisma.$disconnect();
   });
 
-  // API-06 / AC-08
+  // API-06 / AC-08 (Lab 3: identity from the authenticated session)
   it("returns EMPTY state when the requester has never created a ticket", async () => {
     const { requesterA } = await seedFixtures();
-    const res = await request(app).get(`/api/tickets?requesterId=${requesterA.id}`);
+    const agent = await loginAgent(app, requesterA.email);
+    const res = await agent.get("/api/tickets");
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual([]);
     expect(res.body.state).toBe("EMPTY");
@@ -42,10 +42,9 @@ describe("GET /api/tickets", () => {
   it("returns NO_RESULTS state when search matches nothing", async () => {
     const { requesterA, category, relatedSystem } = await seedFixtures();
     await createTicket(requesterA.id, category.id, relatedSystem.id);
+    const agent = await loginAgent(app, requesterA.email);
 
-    const res = await request(app).get(
-      `/api/tickets?requesterId=${requesterA.id}&search=zzzz-no-match`
-    );
+    const res = await agent.get("/api/tickets?search=zzzz-no-match");
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual([]);
     expect(res.body.state).toBe("NO_RESULTS");
@@ -57,33 +56,33 @@ describe("GET /api/tickets", () => {
     for (let i = 0; i < 15; i++) {
       await createTicket(requesterA.id, category.id, relatedSystem.id, { summary: `Ticket ${i}` });
     }
+    const agent = await loginAgent(app, requesterA.email);
 
-    const res = await request(app).get(
-      `/api/tickets?requesterId=${requesterA.id}&page=2&pageSize=10`
-    );
+    const res = await agent.get("/api/tickets?page=2&pageSize=10");
     expect(res.status).toBe(200);
     expect(res.body.data.length).toBe(5);
     expect(res.body.meta.totalItems).toBe(15);
     expect(res.body.meta.totalPages).toBe(2);
   });
 
-  // API-09 / BR-19
+  // API-09 / BR-19 (Lab 2 numbering; see docs/lab-03/tests.md API-14 for the staff-queue equivalent)
   it("falls back to default sort on an invalid sortBy value instead of erroring", async () => {
     const { requesterA, category, relatedSystem } = await seedFixtures();
     await createTicket(requesterA.id, category.id, relatedSystem.id);
+    const agent = await loginAgent(app, requesterA.email);
 
-    const res = await request(app).get(
-      `/api/tickets?requesterId=${requesterA.id}&sortBy=not_a_real_field`
-    );
+    const res = await agent.get("/api/tickets?sortBy=not_a_real_field");
     expect(res.status).toBe(200);
   });
 
-  // API-05 / AC-03: ownership isolation, checked via GET /:id
-  it("does not return another requester's ticket", async () => {
+  // API-05 / AC-03: ownership isolation, checked via GET /:id — a spoofed
+  // requesterId in the query string is ignored; only the session counts.
+  it("does not return another requester's ticket even if requesterId is spoofed in the query", async () => {
     const { requesterA, requesterB, category, relatedSystem } = await seedFixtures();
     const ticket = await createTicket(requesterA.id, category.id, relatedSystem.id);
+    const agent = await loginAgent(app, requesterB.email);
 
-    const res = await request(app).get(`/api/tickets/${ticket.id}?requesterId=${requesterB.id}`);
+    const res = await agent.get(`/api/tickets/${ticket.id}?requesterId=${requesterA.id}`);
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe("TICKET_NOT_FOUND");
   });

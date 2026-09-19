@@ -2,8 +2,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CreateTicket } from "../../src/components/CreateTicket";
-import { RequesterProvider } from "../../src/context/RequesterContext";
 import { api } from "../../src/api/client";
+
+// Lab 3: identity now comes from the authenticated session (AuthContext),
+// not the retired Development Requester context — mock useAuth directly.
+vi.mock("../../src/context/AuthContext", () => ({
+  useAuth: () => ({
+    user: { id: 1, name: "Jennifer Anderson", email: "jennifer.anderson@example.com", role: "REQUESTER", requiresPasswordChange: false },
+  }),
+}));
 
 vi.mock("../../src/api/client", async () => {
   const actual = await vi.importActual<any>("../../src/api/client");
@@ -18,24 +25,14 @@ vi.mock("../../src/api/client", async () => {
   };
 });
 
-function renderWithRequester() {
-  localStorage.setItem("toktickit.devRequester", JSON.stringify({ id: 1, name: "Jennifer Anderson" }));
-  return render(
-    <RequesterProvider>
-      <CreateTicket onCreated={vi.fn()} />
-    </RequesterProvider>
-  );
-}
-
 describe("CreateTicket", () => {
   beforeEach(() => {
-    localStorage.clear();
     vi.clearAllMocks();
   });
 
   // UI-02 / AC-04: blank summary shows a field error and does not call the API
   it("shows a field error and does not call the API when Summary is blank", async () => {
-    renderWithRequester();
+    render(<CreateTicket onCreated={vi.fn()} />);
     await screen.findByLabelText(/Requester/i);
 
     const submit = await screen.findByRole("button", { name: /submit ticket/i });
@@ -52,7 +49,7 @@ describe("CreateTicket", () => {
       new Promise((resolve) => { resolveCreate = resolve; })
     );
 
-    renderWithRequester();
+    render(<CreateTicket onCreated={vi.fn()} />);
     await screen.findByLabelText(/Requester/i);
 
     await userEvent.type(screen.getByLabelText(/Ticket Summary/i), "Laptop battery drains quickly");
@@ -68,7 +65,7 @@ describe("CreateTicket", () => {
   it("shows a safe error and preserves field values when the API call fails", async () => {
     (api.createTicket as any).mockRejectedValue(new Error("network error"));
 
-    renderWithRequester();
+    render(<CreateTicket onCreated={vi.fn()} />);
     await screen.findByLabelText(/Requester/i);
 
     const summaryInput = screen.getByLabelText(/Ticket Summary/i);

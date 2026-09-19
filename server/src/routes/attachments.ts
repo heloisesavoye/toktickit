@@ -5,6 +5,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { prisma } from "../lib/prisma.js";
 import { AppError } from "../middleware/errorHandler.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
 
 // BR-13: allowed types, max size, max active attachments.
 const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
@@ -37,6 +38,11 @@ const upload = multer({
 
 const router = Router();
 
+// Requester-only: attachments belong to the Requester's own tickets (Lab 2,
+// carried over). IT Staff/Administrator read attachments through the staff
+// ticket detail endpoint instead (read-only there in Lab 3, see api-spec §4).
+router.use(requireAuth(), requireRole("REQUESTER"));
+
 // POST /api/tickets/:ticketId/attachments — FR-12, BR-13, BR-14
 router.post("/tickets/:ticketId/attachments", (req, res, next) => {
   upload.single("file")(req, res, async (err) => {
@@ -47,7 +53,7 @@ router.post("/tickets/:ticketId/attachments", (req, res, next) => {
       }
 
       const ticketId = Number(req.params.ticketId);
-      const requesterId = Number(req.body.requesterId);
+      const requesterId = req.user!.id;
 
       const ticket = await prisma.ticket.findFirst({ where: { id: ticketId, requesterId } });
       if (!ticket) throw new AppError(404, "TICKET_NOT_FOUND");
@@ -83,7 +89,7 @@ router.post("/tickets/:ticketId/attachments", (req, res, next) => {
 router.get("/attachments/:id", async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const requesterId = Number(req.query.requesterId);
+    const requesterId = req.user!.id;
     const attachment = await prisma.attachment.findFirst({
       where: { id, ticket: { requesterId } },
     });
@@ -98,7 +104,7 @@ router.get("/attachments/:id", async (req, res, next) => {
 router.get("/attachments/:id/download", async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const requesterId = Number(req.query.requesterId);
+    const requesterId = req.user!.id;
     const attachment = await prisma.attachment.findFirst({
       where: { id, ticket: { requesterId } },
     });
@@ -115,14 +121,15 @@ router.get("/attachments/:id/download", async (req, res, next) => {
 router.post("/attachments/:id/remove", async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const { requesterId, removalReason } = req.body ?? {};
+    const requesterId = req.user!.id;
+    const { removalReason } = req.body ?? {};
 
     if (typeof removalReason !== "string" || removalReason.trim().length < 5) {
       throw new AppError(400, "VALIDATION_ERROR", { removalReason: "Minimum 5 characters" });
     }
 
     const attachment = await prisma.attachment.findFirst({
-      where: { id, ticket: { requesterId: Number(requesterId) } },
+      where: { id, ticket: { requesterId } },
     });
     if (!attachment) throw new AppError(404, "TICKET_NOT_FOUND");
     if (attachment.isRemoved) throw new AppError(409, "ALREADY_REMOVED");
@@ -132,7 +139,7 @@ router.post("/attachments/:id/remove", async (req, res, next) => {
       data: {
         isRemoved: true,
         removedAt: new Date(),
-        removedBy: Number(requesterId),
+        removedBy: requesterId,
         removalReason: removalReason.trim(),
       },
     });

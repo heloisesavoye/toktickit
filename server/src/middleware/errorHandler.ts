@@ -6,12 +6,19 @@ export class AppError extends Error {
   status: number;
   code: string;
   fields?: Record<string, string>;
+  publicMessage?: string;
 
-  constructor(status: number, code: string, fields?: Record<string, string>) {
+  constructor(
+    status: number,
+    code: string,
+    fields?: Record<string, string>,
+    publicMessage?: string
+  ) {
     super(code);
     this.status = status;
     this.code = code;
     this.fields = fields;
+    this.publicMessage = publicMessage;
   }
 }
 
@@ -22,7 +29,9 @@ export function errorHandler(
   _next: NextFunction
 ) {
   if (err instanceof AppError) {
-    return res.status(err.status).json({ error: { code: err.code, fields: err.fields } });
+    return res.status(err.status).json({
+      error: { code: err.code, message: err.publicMessage, fields: err.fields },
+    });
   }
   console.error(err);
   return res.status(500).json({ error: { code: "INTERNAL_ERROR" } });

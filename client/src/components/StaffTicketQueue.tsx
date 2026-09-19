@@ -11,13 +11,14 @@ type Ticket = {
   requestedPriority: string;
   itPriority: string | null;
   currentStatus: string;
+  ticketOwner: { id: number; name: string } | null;
   updatedAt: string;
 };
 
 type ListState = "loading" | "EMPTY" | "NO_RESULTS" | "OK" | "error";
 
-// Implements My Tickets per ui-spec.md §10 and api-spec.md GET /api/tickets.
-export function MyTickets({ onOpen, onCreate }: { onOpen: (id: number) => void; onCreate: () => void }) {
+// IT Staff Ticket Queue per ui-spec.md §6 and api-spec.md GET /api/staff/tickets.
+export function StaffTicketQueue({ onOpen }: { onOpen: (id: number) => void }) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [state, setState] = useState<ListState>("loading");
   const [meta, setMeta] = useState({ page: 1, totalPages: 1, totalItems: 0 });
@@ -33,7 +34,7 @@ export function MyTickets({ onOpen, onCreate }: { onOpen: (id: number) => void; 
     if (status) params.set("status", status);
 
     api
-      .listTickets(params)
+      .listStaffTickets(params)
       .then((res) => {
         setTickets(res.data);
         setMeta(res.meta);
@@ -52,13 +53,10 @@ export function MyTickets({ onOpen, onCreate }: { onOpen: (id: number) => void; 
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <h1>My Tickets</h1>
-          <p>View and track all of your support requests.</p>
+          <h1>Ticket Queue</h1>
+          <p>Find and prioritize work across all Requesters.</p>
         </div>
-        <div style={{ display: "flex", gap: 12 }}>
-          <Button variant="secondary" onClick={clearFilters}>Clear Filters</Button>
-          <Button variant="primary" onClick={onCreate}>+ Create Ticket</Button>
-        </div>
+        <Button variant="secondary" onClick={clearFilters}>Clear Filters</Button>
       </div>
 
       <div style={{ display: "flex", gap: 12, margin: "16px 0", flexWrap: "wrap" }}>
@@ -81,13 +79,9 @@ export function MyTickets({ onOpen, onCreate }: { onOpen: (id: number) => void; 
         </select>
       </div>
 
-      {state === "loading" && <p role="status">Loading tickets…</p>}
-      {state === "error" && <div className="callout callout-error" role="alert">Unable to load your tickets. Please try again.</div>}
-      {state === "EMPTY" && (
-        <div className="callout">
-          You haven't created any tickets yet. <Button variant="tertiary" onClick={onCreate}>Create your first ticket</Button>
-        </div>
-      )}
+      {state === "loading" && <p role="status">Loading queue…</p>}
+      {state === "error" && <div className="callout callout-error" role="alert">Unable to load the ticket queue. Please try again.</div>}
+      {state === "EMPTY" && <div className="callout">No tickets exist yet.</div>}
       {state === "NO_RESULTS" && (
         <div className="callout">
           No tickets match your filters. <Button variant="tertiary" onClick={clearFilters}>Clear Filters</Button>
@@ -100,7 +94,7 @@ export function MyTickets({ onOpen, onCreate }: { onOpen: (id: number) => void; 
             <thead>
               <tr style={{ textAlign: "left", borderBottom: "1px solid var(--color-border)" }}>
                 <th>Ticket No.</th><th>Summary</th><th>Category</th>
-                <th>Requested Priority</th><th>Status</th><th>Last Updated</th>
+                <th>Req. Priority</th><th>IT Priority</th><th>Status</th><th>Owner</th>
               </tr>
             </thead>
             <tbody>
@@ -110,8 +104,9 @@ export function MyTickets({ onOpen, onCreate }: { onOpen: (id: number) => void; 
                   <td>{t.summary}</td>
                   <td>{t.category?.name}</td>
                   <td><Badge label={t.requestedPriority} variant={priorityVariant(t.requestedPriority)} /></td>
+                  <td>{t.itPriority ? <Badge label={t.itPriority} variant={priorityVariant(t.itPriority)} /> : "—"}</td>
                   <td><Badge label={t.currentStatus} variant="status" /></td>
-                  <td>{new Date(t.updatedAt).toLocaleString()}</td>
+                  <td>{t.ticketOwner?.name ?? "Unassigned"}</td>
                 </tr>
               ))}
             </tbody>

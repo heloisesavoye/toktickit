@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MyTickets } from "../../src/components/MyTickets";
-import { RequesterProvider } from "../../src/context/RequesterContext";
 import { api } from "../../src/api/client";
 
 vi.mock("../../src/api/client", async () => {
@@ -9,18 +8,8 @@ vi.mock("../../src/api/client", async () => {
   return { ...actual, api: { listTickets: vi.fn() } };
 });
 
-function renderWithRequester() {
-  localStorage.setItem("toktickit.devRequester", JSON.stringify({ id: 1, name: "Jennifer Anderson" }));
-  return render(
-    <RequesterProvider>
-      <MyTickets onOpen={vi.fn()} onCreate={vi.fn()} />
-    </RequesterProvider>
-  );
-}
-
 describe("MyTickets", () => {
   beforeEach(() => {
-    localStorage.clear();
     vi.clearAllMocks();
   });
 
@@ -31,7 +20,7 @@ describe("MyTickets", () => {
       state: "EMPTY",
       meta: { page: 1, totalPages: 1, totalItems: 0 },
     });
-    renderWithRequester();
+    render(<MyTickets onOpen={vi.fn()} onCreate={vi.fn()} />);
     expect(await screen.findByText(/haven't created any tickets yet/i)).toBeInTheDocument();
   });
 
@@ -42,7 +31,7 @@ describe("MyTickets", () => {
       state: "NO_RESULTS",
       meta: { page: 1, totalPages: 1, totalItems: 0 },
     });
-    renderWithRequester();
+    render(<MyTickets onOpen={vi.fn()} onCreate={vi.fn()} />);
     expect(await screen.findByText(/No tickets match your filters/i)).toBeInTheDocument();
   });
 
@@ -63,7 +52,7 @@ describe("MyTickets", () => {
       state: "OK",
       meta: { page: 1, totalPages: 1, totalItems: 1 },
     });
-    renderWithRequester();
+    render(<MyTickets onOpen={vi.fn()} onCreate={vi.fn()} />);
     expect(await screen.findByText("TKT-2026-000001")).toBeInTheDocument();
   });
 });

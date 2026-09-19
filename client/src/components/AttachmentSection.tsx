@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { api } from "../api/client";
-import { useRequester } from "../context/RequesterContext";
 import { Button } from "./ui/Button";
 
 type Attachment = {
@@ -24,7 +23,6 @@ export function AttachmentSection({
   attachments: Attachment[];
   onChanged: () => void;
 }) {
-  const { requesterId } = useRequester();
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -35,11 +33,11 @@ export function AttachmentSection({
 
   async function handleAddFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file || !requesterId) return;
+    if (!file) return;
     setUploading(true);
     setError(null);
     try {
-      await api.uploadAttachment(ticketId, requesterId, file);
+      await api.uploadAttachment(ticketId, file);
       onChanged();
     } catch {
       setError("Could not add this attachment. Check its type and size and try again.");
@@ -50,13 +48,12 @@ export function AttachmentSection({
   }
 
   async function confirmRemove(id: number) {
-    if (!requesterId) return;
     if (reason.trim().length < 5) {
       setError("Please provide a removal reason of at least 5 characters.");
       return;
     }
     try {
-      await api.removeAttachment(id, requesterId, reason.trim());
+      await api.removeAttachment(id, reason.trim());
       setRemovingId(null);
       setReason("");
       onChanged();
@@ -74,7 +71,7 @@ export function AttachmentSection({
         {active.map((a) => (
           <li key={a.id} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
             <span>{a.fileName} ({Math.round(a.sizeBytes / 1024)} KB)</span>
-            <a href={api.downloadUrl(a.id, requesterId!)} target="_blank" rel="noreferrer">Download</a>
+            <a href={api.downloadUrl(a.id)} target="_blank" rel="noreferrer">Download</a>
             {removingId === a.id ? (
               <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <input
