@@ -41,7 +41,21 @@ const router = Router();
 // Requester-only: attachments belong to the Requester's own tickets (Lab 2,
 // carried over). IT Staff/Administrator read attachments through the staff
 // ticket detail endpoint instead (read-only there in Lab 3, see api-spec §4).
-router.use(requireAuth(), requireRole("REQUESTER"));
+//
+// This router is mounted at the bare "/api" prefix (its two route families,
+// "/tickets/:ticketId/attachments" and "/attachments/:id", don't share a
+// common sub-prefix), so a path-less `router.use(...)` here would run for
+// EVERY "/api/*" request that reaches this router in the chain — including
+// "/api/staff/*" and "/api/admin/*" — and reject non-Requester roles with
+// 403 before Express ever gets to staffTicketsRouter/adminUsersRouter. Scope
+// the gate to this router's own route patterns instead.
+const attachmentRoutePaths = [
+  "/tickets/:ticketId/attachments",
+  "/attachments/:id",
+  "/attachments/:id/download",
+  "/attachments/:id/remove",
+];
+router.use(attachmentRoutePaths, requireAuth(), requireRole("REQUESTER"));
 
 // POST /api/tickets/:ticketId/attachments — FR-12, BR-13, BR-14
 router.post("/tickets/:ticketId/attachments", (req, res, next) => {
