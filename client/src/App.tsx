@@ -1,52 +1,78 @@
 import { useState } from "react";
-import { checkSystem, Category } from "./api.js";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { Login } from "./components/Login";
+import { ChangePassword } from "./components/ChangePassword";
+import { AppShell, type Page } from "./components/AppShell";
+import { CreateTicket } from "./components/CreateTicket";
+import { MyTickets } from "./components/MyTickets";
+import { RequesterTicketDetail } from "./components/RequesterTicketDetail";
+import { StaffTicketQueue } from "./components/StaffTicketQueue";
+import { StaffTicketDetail } from "./components/StaffTicketDetail";
+import { UserManagement } from "./components/UserManagement";
+import "./theme/tokens.css";
 
-type UiState = "idle" | "loading" | "success" | "error";
+type Route =
+  | { name: "my-tickets" }
+  | { name: "create-ticket" }
+  | { name: "ticket-detail"; id: number }
+  | { name: "staff-queue" }
+  | { name: "staff-ticket-detail"; id: number }
+  | { name: "admin-users" };
 
-export default function App() {
-  const [state, setState] = useState<UiState>("idle");
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [errorMessage, setErrorMessage] = useState("");
+function AppInner() {
+  const { status, user } = useAuth();
+  const [route, setRoute] = useState<Route>({ name: "my-tickets" });
 
-  async function handleCheck() {
-    setState("loading");
-    try {
-      const result = await checkSystem();
-      setCategories(result.categories);
-      setState("success");
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Unknown error");
-      setState("error");
-    }
-  }
+  if (status === "loading") return <p role="status">Loading…</p>;
+  if (status === "anonymous" || !user) return <Login />;
+  if (user.requiresPasswordChange) return <ChangePassword />;
+
+  // FR-07: default landing route depends on role.
+  const homeRoute: Route =
+    user.role === "REQUESTER" ? { name: "my-tickets" } : { name: "staff-queue" };
+  const effectiveRoute =
+    (user.role === "REQUESTER" && ["staff-queue", "staff-ticket-detail", "admin-users"].includes(route.name)) ||
+    (user.role !== "REQUESTER" && ["my-tickets", "create-ticket", "ticket-detail"].includes(route.name)) ||
+    (user.role !== "ADMINISTRATOR" && route.name === "admin-users")
+      ? homeRoute
+      : route;
+
+  const activePage: Page =
+    effectiveRoute.name === "ticket-detail"
+      ? "my-tickets"
+      : effectiveRoute.name === "staff-ticket-detail"
+      ? "staff-queue"
+      : (effectiveRoute.name as Page);
 
   return (
-    <div className="container py-5" style={{ maxWidth: 640 }}>
-      <h1 className="h3 mb-4">
-        TokTickIT <span className="text-success">IT Service Desk</span>
-      </h1>
-
-      <button className="btn btn-success" onClick={handleCheck} disabled={state === "loading"}>
-        {state === "loading" ? "Loading…" : "Check System"}
-      </button>
-
-      {state === "success" && (
-        <div className="mt-4">
-          <p className="text-success fw-bold">Online</p>
-          <ul>
-            {categories.map((cat) => (
-              <li key={cat.id}>{cat.name}</li>
-            ))}
-          </ul>
-        </div>
+    <AppShell active={activePage} onNavigate={(page) => setRoute({ name: page } as Route)}>
+      {effectiveRoute.name === "my-tickets" && (
+        <MyTickets
+          onOpen={(id) => setRoute({ name: "ticket-detail", id })}
+          onCreate={() => setRoute({ name: "create-ticket" })}
+        />
       )}
-
-      {state === "error" && (
-        <div className="mt-4 text-danger">
-          <p className="fw-bold">Offline</p>
-          <p>{errorMessage}</p>
-        </div>
+      {effectiveRoute.name === "create-ticket" && (
+        <CreateTicket onCreated={(_num, id) => setRoute({ name: "ticket-detail", id })} />
       )}
-    </div>
+      {effectiveRoute.name === "ticket-detail" && (
+        <RequesterTicketDetail ticketId={effectiveRoute.id} onBack={() => setRoute({ name: "my-tickets" })} />
+      )}
+      {effectiveRoute.name === "staff-queue" && (
+        <StaffTicketQueue onOpen={(id) => setRoute({ name: "staff-ticket-detail", id })} />
+      )}
+      {effectiveRoute.name === "staff-ticket-detail" && (
+        <StaffTicketDetail ticketId={effectiveRoute.id} onBack={() => setRoute({ name: "staff-queue" })} />
+      )}
+      {effectiveRoute.name === "admin-users" && <UserManagement />}
+    </AppShell>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
   );
 }
