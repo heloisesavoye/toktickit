@@ -24,12 +24,3 @@ ran for the first time on a real machine (PostgreSQL, Windows/PowerShell).
 
 ## My Reflection
 What worked best was the AI agent's insistence on evidence over assumption: instead of guessing why logins or user-management flows failed, it read the actual Playwright failure artifacts, queried the Postgres database directly, and traced the exact request path through the client and server source before proposing a fix — which is how it found three genuine, previously-unknown application bugs (a client/server port mismatch, a password generator that could fail its own policy, and a network race condition) rather than just patching test assertions until they went green. What needed my own correction and patience was that several early hypotheses (stray environment variables, a supposedly-wiped database) turned out to be wrong or incomplete, so getting to the real root causes took multiple rounds of "run this exact command, paste the exact output" — and since the AI has no access to my own machine's PostgreSQL instance or running dev servers, I stayed the one actually executing every command and pasting back real terminal output at each step, including fighting through several PowerShell quoting/encoding issues on my own. The main lesson: a test suite that "looks correct" on paper (or that passed once) is not the same as one that is actually reliable — it took running the full suite repeatedly, including a fully serial `--workers=1` run to rule out contention as an explanation, to separate real environment flakiness from real, reproducible application bugs.
-_[2–4 sentences, in your own words: what worked well using an AI agent for
-implementation and debugging under a fixed Spec-DD/Test-DD, what you had to
-correct or push back on (for example the real bugs found only once things
-ran for real on your machine — the `attachments.ts` router-scoping bug, three
-separate instances of the same ".env not auto-loaded by tsx" bug class, the
-shared test/dev database wiping seeded accounts, and the client's mismatched
-`VITE_API_BASE`/`VITE_API_URL` env var name — plus the two test-only bugs
-found afterward), and one thing this process taught you about trusting "the
-code looks right" versus "it actually ran end-to-end on a real machine".]_
