@@ -21,10 +21,28 @@ const ROLE_LABEL: Record<UserRow["role"], string> = {
 };
 
 function randomPassword() {
-  const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%";
-  let out = "";
-  for (let i = 0; i < 12; i++) out += chars[Math.floor(Math.random() * chars.length)];
-  return out;
+  // Purely random draws from a mixed charset don't guarantee coverage of
+  // every character class the server's validatePasswordPolicy requires
+  // (upper/lower/digit/special) — a 12-character password drawn this way
+  // fails that policy roughly a third of the time. Guarantee one of each
+  // required class first, then fill the rest randomly and shuffle so the
+  // required characters aren't always in the same positions.
+  const upper = "ABCDEFGHJKMNPQRSTUVWXYZ";
+  const lower = "abcdefghjkmnpqrstuvwxyz";
+  const digits = "23456789";
+  const special = "!@#$%";
+  const all = upper + lower + digits + special;
+
+  const pick = (set: string) => set[Math.floor(Math.random() * set.length)];
+  const required = [pick(upper), pick(lower), pick(digits), pick(special)];
+  const rest = Array.from({ length: 8 }, () => pick(all));
+
+  const out = [...required, ...rest];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out.join("");
 }
 
 // Administrator User Management per ui-spec.md §8 and api-spec.md §5.
