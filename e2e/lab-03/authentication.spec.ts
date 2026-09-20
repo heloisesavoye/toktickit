@@ -5,7 +5,8 @@ import { test, expect } from "@playwright/test";
 
 const STAFF = { email: "priya.nakamura@toktickit.local", password: "StaffDev123!" };
 const INACTIVE = { email: "former.employee@example.com", password: "RequesterDev123!" };
-const FIRST_LOGIN = { email: "new.hire@toktickit.local", password: "Temp1234!" };
+const ADMIN = { email: "admin@toktickit.local", password: "AdminDev123!" };
+const API_BASE = "http://localhost:3000/api";
 
 async function shot(page: import("@playwright/test").Page, name: string, project: string) {
   await page.screenshot({ path: `artifacts/lab-03/screenshots/authentication/${name}/${project}.png`, fullPage: true });
@@ -53,10 +54,38 @@ test("Sign-in button shows a busy state while the request is in flight", async (
   await expect(page.getByRole("heading", { name: /ticket queue/i })).toBeVisible();
 });
 
-test("Mandatory first-login password change, then normal access", async ({ page }, testInfo) => {
+test("Mandatory first-login password change, then normal access", async ({ page, request }, testInfo) => {
+  // Create a fresh, single-use first-login account via the API rather than
+  // reusing the static seeded "new.hire" fixture: the three device projects
+  // share one persistent dev database, so a shared account gets its password
+  // changed by whichever project runs first and every other project then
+  // fails to log in with the original temporary password.
+  const adminLogin = await request.post(`${API_BASE}/auth/login`, {
+    data: { email: ADMIN.email, password: ADMIN.password },
+  });
+  const adminCookie = adminLogin
+    .headersArray()
+    .filter((h) => h.name.toLowerCase() === "set-cookie")
+    .map((h) => h.value.split(";")[0])
+    .join("; ");
+
+  const suffix = `${Date.now()}-${testInfo.project.name}`;
+  const tempPassword = "Temp1234!";
+  const firstLoginEmail = `e2e.firstlogin.${suffix}@toktickit.local`;
+  await request.post(`${API_BASE}/admin/users`, {
+    headers: { Cookie: adminCookie },
+    data: {
+      name: `E2E First Login ${suffix}`,
+      email: firstLoginEmail,
+      role: "IT_STAFF",
+      isActive: true,
+      initialPassword: tempPassword,
+    },
+  });
+
   await page.goto("/");
-  await page.getByLabel(/Email address/i).fill(FIRST_LOGIN.email);
-  await page.getByLabel(/^Password/i).fill(FIRST_LOGIN.password);
+  await page.getByLabel(/Email address/i).fill(firstLoginEmail);
+  await page.getByLabel(/^Password/i).fill(tempPassword);
   await page.getByRole("button", { name: /sign in/i }).click();
   await expect(page.getByRole("heading", { name: /change your password/i })).toBeVisible();
   await shot(page, "forced-password-change", testInfo.project.name);
@@ -65,7 +94,7 @@ test("Mandatory first-login password change, then normal access", async ({ page 
   // "!" (the only special character), which silently failed the password
   // policy and left the Continue button permanently disabled.
   const newPassword = `NewHire!${Date.now()}`;
-  await page.getByLabel(/Current \(temporary\) password/i).fill(FIRST_LOGIN.password);
+  await page.getByLabel(/Current \(temporary\) password/i).fill(tempPassword);
   await page.getByLabel(/^New password/i).fill(newPassword);
   await page.getByLabel(/Confirm new password/i).fill(newPassword);
   await page.getByRole("button", { name: /continue/i }).click();

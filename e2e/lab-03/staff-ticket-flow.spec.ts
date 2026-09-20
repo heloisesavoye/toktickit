@@ -68,7 +68,15 @@ test.describe("IT Staff Ticket Detail", () => {
 
   test("claiming an unassigned ticket sets the current user as owner", async ({ page }, testInfo) => {
     await openUnassignedTicket(page);
-    await page.getByRole("button", { name: /^claim$/i }).click();
+    // All three device projects log in as the same seeded staff account and
+    // share one persistent dev database, so whichever project runs first
+    // claims this ticket for real — the "Claim" button is then gone on the
+    // next project's run. Either way the end state (owner = Priya Nakamura)
+    // is the same, so only click Claim if it's still there.
+    const claimButton = page.getByRole("button", { name: /^claim$/i });
+    if (await claimButton.isVisible().catch(() => false)) {
+      await claimButton.click();
+    }
     // The owner field is a read-only <input>, not a labelled form control, so
     // it's checked by value on the input near the "Ticket Owner" label
     // rather than Testing Library's getByDisplayValue (not a Playwright API).
