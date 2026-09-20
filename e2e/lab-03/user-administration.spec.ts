@@ -50,12 +50,17 @@ test("creating a user with a duplicate email is rejected with field-level valida
 test("creating a new user with a generated initial password succeeds", async ({ page }, testInfo) => {
   await loginAdmin(page);
   await page.getByRole("button", { name: /create user/i }).click();
-  const email = `e2e.user.${Date.now()}@toktickit.local`;
-  await page.getByLabel(/Full Name/i).fill("E2E Test User");
+  // Unique per run (not just per email): the dev database persists between
+  // runs/projects, so a static name like "E2E Test User" collides with rows
+  // left over from earlier runs and makes the assertion below ambiguous.
+  const suffix = Date.now();
+  const email = `e2e.user.${suffix}@toktickit.local`;
+  const name = `E2E Test User ${suffix}`;
+  await page.getByLabel(/Full Name/i).fill(name);
   await page.getByLabel(/Email Address/i).fill(email);
   await page.screenshot({ path: `artifacts/lab-03/screenshots/user-management/create/${testInfo.project.name}.png`, fullPage: true });
   await page.getByRole("button", { name: /save user/i }).click();
-  await expect(page.getByText("E2E Test User")).toBeVisible();
+  await expect(page.getByText(name)).toBeVisible();
 });
 
 test("editing a user's details saves changes", async ({ page }, testInfo) => {
