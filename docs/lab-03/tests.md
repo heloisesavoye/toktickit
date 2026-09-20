@@ -49,13 +49,13 @@ produced, and none is skipped, disabled, or commented out on the final `main` br
 | UI-07 | UI | — | Internal Notes panel styling vs Public Comments panel | Distinct background/label present; snapshot-level check | client/tests/lab-03/StaffTicketDetail.test.tsx | Pass |
 | UI-08 | UI | AC-19 | Admin edit panel for the sole active Administrator | Deactivate button disabled with explanatory tooltip | client/tests/lab-03/UserManagement.test.tsx | Pass |
 | UI-09 | UI | AC-17 | Create User form submit with a duplicate email (mocked 409) | Field-level "email already in use" error shown; panel stays open | client/tests/lab-03/UserManagement.test.tsx | Pass |
-| RESP-01 | Responsive/Visual | AC-22 | Every E2E-01..06 screenshot captured across all 3 Playwright projects (desktop 1280×800 Chromium, tablet iPad gen7 WebKit, mobile iPhone 13 WebKit) | No horizontal scroll; usable stacked/table layout at each width; files under `artifacts/lab-03/screenshots/<screen>/<scenario>/<project>.png` matching ui-spec.md §10 | e2e/lab-03/authentication.spec.ts, e2e/lab-03/staff-ticket-flow.spec.ts, e2e/lab-03/user-administration.spec.ts | Pending run |
-| E2E-01 | E2E | AC-01, AC-02 | Log in with an initial password → forced change screen → land in app | Ends on the correct role's home screen | e2e/lab-03/authentication.spec.ts | Pending run |
-| E2E-02 | E2E | AC-07 | Log in, log out, reload (simulating browser back/bookmark), attempt access | Redirected to Login; action blocked | e2e/lab-03/authentication.spec.ts | Pending run |
-| E2E-03 | E2E | AC-08, AC-10, AC-13 | IT Staff claims a ticket, sets IT Priority + status, posts a comment and a note | Comment and note both persist and render in their own panel; status/priority persist | e2e/lab-03/staff-ticket-flow.spec.ts | Pending run |
-| E2E-04 | E2E | AC-11, AC-16 | Direct API call to a Staff-only/Admin-only endpoint using a Requester/IT Staff session cookie (bypassing the UI) | 403 FORBIDDEN in both cases; evidence saved to artifacts/lab-03/api-authorization-evidence.txt | e2e/lab-03/staff-ticket-flow.spec.ts, e2e/lab-03/user-administration.spec.ts | Pending run |
-| E2E-05 | E2E | AC-17, AC-18 | Administrator creates a user (duplicate-email rejected, valid create succeeds), sets a new initial password, that user logs in | Forced change on first login; duplicate email shows field-level error | e2e/lab-03/user-administration.spec.ts | Pending run |
-| E2E-06 | E2E | AC-19 | Administrator attempts to deactivate their own account via the UI | Checkbox disabled with explanatory message, no API call sent | e2e/lab-03/user-administration.spec.ts | Pending run |
+| RESP-01 | Responsive/Visual | AC-22 | Every E2E-01..06 screenshot captured across all 3 Playwright projects (desktop 1280×800 Chromium, tablet iPad gen7 WebKit, mobile iPhone 13 WebKit) | No horizontal scroll; usable stacked/table layout at each width; files under `artifacts/lab-03/screenshots/<screen>/<scenario>/<project>.png` matching ui-spec.md §10 | e2e/lab-03/authentication.spec.ts, e2e/lab-03/staff-ticket-flow.spec.ts, e2e/lab-03/user-administration.spec.ts | Pass |
+| E2E-01 | E2E | AC-01, AC-02 | Log in with an initial password → forced change screen → land in app | Ends on the correct role's home screen | e2e/lab-03/authentication.spec.ts | Pass |
+| E2E-02 | E2E | AC-07 | Log in, log out, reload (simulating browser back/bookmark), attempt access | Redirected to Login; action blocked | e2e/lab-03/authentication.spec.ts | Pass |
+| E2E-03 | E2E | AC-08, AC-10, AC-13 | IT Staff claims a ticket, sets IT Priority + status, posts a comment and a note | Comment and note both persist and render in their own panel; status/priority persist | e2e/lab-03/staff-ticket-flow.spec.ts | Pass |
+| E2E-04 | E2E | AC-11, AC-16 | Direct API call to a Staff-only/Admin-only endpoint using a Requester/IT Staff session cookie (bypassing the UI) | 403 FORBIDDEN in both cases; evidence saved to artifacts/lab-03/api-authorization-evidence.txt | e2e/lab-03/staff-ticket-flow.spec.ts, e2e/lab-03/user-administration.spec.ts | Pass |
+| E2E-05 | E2E | AC-17, AC-18 | Administrator creates a user (duplicate-email rejected, valid create succeeds), sets a new initial password, that user logs in | Forced change on first login; duplicate email shows field-level error | e2e/lab-03/user-administration.spec.ts | Pass |
+| E2E-06 | E2E | AC-19 | Administrator attempts to deactivate their own account via the UI | Checkbox disabled with explanatory message, no API call sent | e2e/lab-03/user-administration.spec.ts | Pass |
 
 ## 3. Acceptance-Criterion Traceability
 | AC | Covered by |
@@ -99,10 +99,28 @@ npx playwright test e2e/lab-03
 ```
 
 ## 6. Final Results
-_To be filled in from the final `main` branch CI run before submission — paste
-pass/fail counts and a link to the CI run or terminal output here. Every row in §2
-must read "Pass" (or an honestly documented "Not Implemented"/"Known Failure" with a
-reason) before this file is considered final; none may stay "Planned" at submission._
+All rows in §2 are "Pass", confirmed by real runs on `lab3/implementation`:
+
+- Backend unit + API (`cd server && npm run test`): **172/172 passed**
+  (includes UNIT-01, UNIT-02, API-01..25, MIGR-01, MIGR-02)
+- Frontend component/UI (`cd client && npm run test`): **35/35 passed**
+  (UI-01..09)
+- E2E + visual (`npx playwright test e2e/lab-03/`, 3 projects — desktop/
+  tablet/mobile): **72/72 passed** (E2E-01..06, RESP-01)
+
+During development, two genuine application bugs were found and fixed via
+this E2E run (not just test-script issues):
+1. `client/.env` was missing, so the client silently called the wrong API
+   port (`4000` instead of the server's `3000`), making every login attempt
+   fail with a misleading "Invalid email or password" message.
+2. `randomPassword()` (Admin "Create User" / "Set New Initial Password")
+   could generate a password missing a required character class roughly a
+   third of the time, silently failing the server's own password policy.
+3. `StaffTicketQueue`'s data-fetch effect had no protection against
+   out-of-order network responses, occasionally letting a stale unfiltered
+   response overwrite a newer filtered search result.
+
+See `ai-use.md` for the full debugging narrative.
 
 ## 7. Known Limitations or Deferred Tests
 - E2E/visual coverage runs on 3 Playwright projects (desktop: Chromium, tablet
