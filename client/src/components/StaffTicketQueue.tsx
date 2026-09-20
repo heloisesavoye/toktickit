@@ -28,6 +28,11 @@ export function StaffTicketQueue({ onOpen }: { onOpen: (id: number) => void }) {
   const [page, setPage] = useState(1);
 
   useEffect(() => {
+    // Guard against out-of-order responses: if the user types a search term
+    // quickly, the unfiltered request fired on mount can resolve *after*
+    // the filtered one and overwrite it with the wrong list. Only the
+    // response from the most recently fired effect is applied.
+    let cancelled = false;
     setState("loading");
     const params = new URLSearchParams({ page: String(page) });
     if (search) params.set("search", search);
@@ -36,11 +41,18 @@ export function StaffTicketQueue({ onOpen }: { onOpen: (id: number) => void }) {
     api
       .listStaffTickets(params)
       .then((res) => {
+        if (cancelled) return;
         setTickets(res.data);
         setMeta(res.meta);
         setState(res.state);
       })
-      .catch(() => setState("error"));
+      .catch(() => {
+        if (!cancelled) setState("error");
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [search, status, page]);
 
   function clearFilters() {
