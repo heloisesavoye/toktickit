@@ -42,9 +42,13 @@ test.describe("IT Staff Ticket Queue", () => {
   test("no-results state offers a clear-filters action", async ({ page }, testInfo) => {
     await loginStaff(page);
     await page.getByPlaceholder(/search by ticket number or summary/i).fill("nonexistent-ticket-zzz");
-    await expect(page.getByText(/no tickets match your filters/i)).toBeVisible();
+    const noResults = page.getByText(/no tickets match your filters/i);
+    await expect(noResults).toBeVisible();
     await page.screenshot({ path: `artifacts/lab-03/screenshots/staff-queue/no-results/${testInfo.project.name}.png`, fullPage: true });
-    await page.getByRole("button", { name: /clear filters/i }).click();
+    // Two "Clear Filters" buttons exist (the always-visible one above the
+    // table and the one inside this no-results message) — scope to the one
+    // inside the message so the click isn't ambiguous.
+    await noResults.getByRole("button", { name: /clear filters/i }).click();
     await expect(page.getByText("TKT-2026-000001")).toBeVisible();
   });
 });
@@ -65,7 +69,11 @@ test.describe("IT Staff Ticket Detail", () => {
   test("claiming an unassigned ticket sets the current user as owner", async ({ page }, testInfo) => {
     await openUnassignedTicket(page);
     await page.getByRole("button", { name: /^claim$/i }).click();
-    await expect(page.getByDisplayValue("Priya Nakamura")).toBeVisible();
+    // The owner field is a read-only <input>, not a labelled form control, so
+    // it's checked by value on the input near the "Ticket Owner" label
+    // rather than Testing Library's getByDisplayValue (not a Playwright API).
+    const ownerField = page.locator(".field", { hasText: "Ticket Owner" }).locator("input");
+    await expect(ownerField).toHaveValue("Priya Nakamura");
     await page.screenshot({ path: `artifacts/lab-03/screenshots/staff-ticket-detail/claim/${testInfo.project.name}.png`, fullPage: true });
   });
 

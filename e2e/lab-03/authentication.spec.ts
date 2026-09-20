@@ -18,8 +18,8 @@ test("Valid login shows the authenticated shell with role badge", async ({ page 
   await page.getByLabel(/^Password/i).fill(STAFF.password);
   await page.getByRole("button", { name: /sign in/i }).click();
   await expect(page.getByRole("heading", { name: /ticket queue/i })).toBeVisible();
-  await expect(page.getByText(/priya nakamura/i)).toBeVisible();
-  await expect(page.getByText(/it staff/i)).toBeVisible();
+  await expect(page.getByRole("banner").getByText(/priya nakamura/i)).toBeVisible();
+  await expect(page.getByRole("banner").getByText(/it staff/i)).toBeVisible();
   await shot(page, "valid-login", testInfo.project.name);
 });
 
@@ -61,7 +61,10 @@ test("Mandatory first-login password change, then normal access", async ({ page 
   await expect(page.getByRole("heading", { name: /change your password/i })).toBeVisible();
   await shot(page, "forced-password-change", testInfo.project.name);
 
-  const newPassword = `NewHire${Date.now()}!`.slice(0, 20);
+  // Not sliced: slicing to a fixed length risked cutting off the trailing
+  // "!" (the only special character), which silently failed the password
+  // policy and left the Continue button permanently disabled.
+  const newPassword = `NewHire!${Date.now()}`;
   await page.getByLabel(/Current \(temporary\) password/i).fill(FIRST_LOGIN.password);
   await page.getByLabel(/^New password/i).fill(newPassword);
   await page.getByLabel(/Confirm new password/i).fill(newPassword);
