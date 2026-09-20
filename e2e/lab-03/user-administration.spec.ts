@@ -18,18 +18,22 @@ async function loginAdmin(page: import("@playwright/test").Page) {
 
 test("lists seeded users with role and status, plus search and role filter", async ({ page }, testInfo) => {
   await loginAdmin(page);
-  await expect(page.getByText("Alex Thompson")).toBeVisible();
+  // Scoped to the users table: the logged-in admin's own name also appears
+  // in the page banner, which would otherwise make these matches ambiguous
+  // (or, for "not visible", falsely still-visible via the banner).
+  const table = page.getByRole("table");
+  await expect(table.getByText("Alex Thompson")).toBeVisible();
   await page.screenshot({ path: `artifacts/lab-03/screenshots/user-management/${testInfo.project.name}.png`, fullPage: true });
 
   await page.getByPlaceholder(/search by name or email/i).fill("Priya");
-  await expect(page.getByText("Priya Nakamura")).toBeVisible();
-  await expect(page.getByText("Alex Thompson")).not.toBeVisible();
+  await expect(table.getByText("Priya Nakamura")).toBeVisible();
+  await expect(table.getByText("Alex Thompson")).not.toBeVisible();
   await page.screenshot({ path: `artifacts/lab-03/screenshots/user-management/search/${testInfo.project.name}.png`, fullPage: true });
 
   await page.getByPlaceholder(/search by name or email/i).fill("");
   await page.getByRole("combobox").selectOption("ADMINISTRATOR");
-  await expect(page.getByText("Alex Thompson")).toBeVisible();
-  await expect(page.getByText("Priya Nakamura")).not.toBeVisible();
+  await expect(table.getByText("Alex Thompson")).toBeVisible();
+  await expect(table.getByText("Priya Nakamura")).not.toBeVisible();
   await page.screenshot({ path: `artifacts/lab-03/screenshots/user-management/role-filter/${testInfo.project.name}.png`, fullPage: true });
 });
 
@@ -61,7 +65,10 @@ test("editing a user's details saves changes", async ({ page }, testInfo) => {
   await page.getByLabel(/Full Name/i).fill("Chalermchai Suk (Updated)");
   await page.screenshot({ path: `artifacts/lab-03/screenshots/user-management/edit/${testInfo.project.name}.png`, fullPage: true });
   await page.getByRole("button", { name: /save changes/i }).click();
-  await expect(page.getByText("Chalermchai Suk (Updated)")).toBeVisible();
+  // Scoped to the table: the edit panel's own "Edit Chalermchai Suk
+  // (Updated)" heading contains the same text and briefly overlaps with the
+  // table during the panel's close transition, which is ambiguous otherwise.
+  await expect(page.getByRole("table").getByText("Chalermchai Suk (Updated)")).toBeVisible();
 });
 
 test("setting a new initial password forces a password change at next login", async ({ page, request }, testInfo) => {
@@ -73,7 +80,12 @@ test("setting a new initial password forces a password change at next login", as
   await page.getByLabel(/New Initial Password/i).fill(newPassword);
   await page.screenshot({ path: `artifacts/lab-03/screenshots/user-management/reset-password/${testInfo.project.name}.png`, fullPage: true });
   await page.getByRole("button", { name: /^confirm$/i }).click();
-  await expect(page.getByText(/users/i)).toBeVisible();
+  // Wait for the edit panel to actually close (i.e. for the setUserPassword
+  // request to resolve) before moving on — otherwise "Users" is already
+  // visible underneath the open panel and the next step (logout) can race
+  // ahead of the password actually being saved server-side.
+  await expect(page.getByRole("heading", { name: /edit emma wilson/i })).toBeHidden();
+  await expect(page.getByRole("heading", { name: /^users$/i })).toBeVisible();
 
   // Prove it: log in as Emma with the new password and confirm the forced-change screen appears.
   await page.getByRole("button", { name: /logout/i }).click();
