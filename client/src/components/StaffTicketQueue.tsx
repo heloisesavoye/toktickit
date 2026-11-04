@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { Badge, priorityVariant } from "./ui/Badge";
 import { Button } from "./ui/Button";
+import { StatusBadge } from "./dashboard/MetricCard";
+import { statusLabel, type ListFilter } from "../lib/labels";
 
 type Ticket = {
   id: number;
@@ -18,13 +20,21 @@ type Ticket = {
 type ListState = "loading" | "EMPTY" | "NO_RESULTS" | "OK" | "error";
 
 // IT Staff Ticket Queue per ui-spec.md §6 and api-spec.md GET /api/staff/tickets.
-export function StaffTicketQueue({ onOpen }: { onOpen: (id: number) => void }) {
+export function StaffTicketQueue({
+  onOpen,
+  initialFilter = {},
+}: {
+  onOpen: (id: number) => void;
+  initialFilter?: ListFilter; // Lab 4: dashboard drill-down (AC-15)
+}) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [state, setState] = useState<ListState>("loading");
   const [meta, setMeta] = useState({ page: 1, totalPages: 1, totalItems: 0 });
 
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(initialFilter.status ?? "");
+  const [ownerId, setOwnerId] = useState(initialFilter.ownerId ?? "");
+  const [itPriority, setItPriority] = useState(initialFilter.itPriority ?? "");
   const [page, setPage] = useState(1);
 
   useEffect(() => {
@@ -37,6 +47,8 @@ export function StaffTicketQueue({ onOpen }: { onOpen: (id: number) => void }) {
     const params = new URLSearchParams({ page: String(page) });
     if (search) params.set("search", search);
     if (status) params.set("status", status);
+    if (ownerId) params.set("ownerId", ownerId);
+    if (itPriority) params.set("itPriority", itPriority);
 
     api
       .listStaffTickets(params)
@@ -53,13 +65,20 @@ export function StaffTicketQueue({ onOpen }: { onOpen: (id: number) => void }) {
     return () => {
       cancelled = true;
     };
-  }, [search, status, page]);
+  }, [search, status, ownerId, itPriority, page]);
 
   function clearFilters() {
     setSearch("");
     setStatus("");
+    setOwnerId("");
+    setItPriority("");
     setPage(1);
   }
+
+  const dashboardChip = [
+    ownerId === "unassigned" ? "Unassigned" : ownerId ? "Owner: me" : "",
+    itPriority ? `IT priority: ${itPriority === "UNSET" ? "not set" : itPriority}` : "",
+  ].filter(Boolean);
 
   return (
     <div className="card">
@@ -80,6 +99,7 @@ export function StaffTicketQueue({ onOpen }: { onOpen: (id: number) => void }) {
         />
         <select value={status} onChange={(e) => { setPage(1); setStatus(e.target.value); }}>
           <option value="">All Statuses</option>
+          <option value="ACTIVE">All active</option>
           <option value="NEW">New</option>
           <option value="OPEN">Open</option>
           <option value="IN_PROGRESS">In Progress</option>
@@ -90,6 +110,13 @@ export function StaffTicketQueue({ onOpen }: { onOpen: (id: number) => void }) {
           <option value="CANCELLED">Cancelled</option>
         </select>
       </div>
+
+      {dashboardChip.length > 0 && (
+        <div className="callout" style={{ marginBottom: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          Filtered from dashboard: <strong>{[...dashboardChip, status ? statusLabel(status) : ""].filter(Boolean).join(" · ")}</strong>
+          <Button variant="tertiary" onClick={clearFilters}>Clear</Button>
+        </div>
+      )}
 
       {state === "loading" && <p role="status">Loading queue…</p>}
       {state === "error" && <div className="callout callout-error" role="alert">Unable to load the ticket queue. Please try again.</div>}
@@ -102,6 +129,7 @@ export function StaffTicketQueue({ onOpen }: { onOpen: (id: number) => void }) {
 
       {state === "OK" && (
         <>
+          <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ textAlign: "left", borderBottom: "1px solid var(--color-border)" }}>
@@ -117,13 +145,14 @@ export function StaffTicketQueue({ onOpen }: { onOpen: (id: number) => void }) {
                   <td>{t.category?.name}</td>
                   <td><Badge label={t.requestedPriority} variant={priorityVariant(t.requestedPriority)} /></td>
                   <td>{t.itPriority ? <Badge label={t.itPriority} variant={priorityVariant(t.itPriority)} /> : "—"}</td>
-                  <td><Badge label={t.currentStatus} variant="status" /></td>
+                  <td><StatusBadge status={t.currentStatus} /></td>
                   <td>{t.ticketOwner?.name ?? "Unassigned"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16 }}>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16, flexWrap: "wrap", gap: 8 }}>
             <span>Showing page {meta.page} of {meta.totalPages} ({meta.totalItems} tickets)</span>
             <div style={{ display: "flex", gap: 8 }}>
               <Button variant="secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Previous</Button>

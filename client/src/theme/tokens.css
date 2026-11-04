@@ -158,3 +158,104 @@ textarea:focus-visible {
 @media (max-width: 767px) {
   .responsive-grid { grid-template-columns: 1fr !important; }
 }
+
+/* ------------------------------------------------------------------ */
+/* Lab 4 — dashboards, Actions Taken, workflow (docs/lab-04/ui-spec.md) */
+/* Reuses the Zen Green tokens above; no new brand colors.             */
+/* ------------------------------------------------------------------ */
+html, body { overflow-x: hidden; }
+h1 { font-size: 24px; margin: 0 0 4px; }
+h2 { font-size: 18px; margin: 0 0 12px; }
+.muted { color: #5B6B61; font-size: 14px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Navigation: active page = bold + underline + aria-current, not color alone */
+.nav-item { color: #CDEBDA; font-weight: 400; min-height: 44px; padding: 0 8px; cursor: pointer; border-bottom: 3px solid transparent; }
+.nav-item-active { color: white; font-weight: 700; border-bottom-color: white; }
+.nav-item:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+
+.dashboard-header, .section-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.dashboard-header p { margin: 0; color: #5B6B61; }
+
+.metric-grid { display: grid; gap: 16px; margin-bottom: 16px; }
+.metric-grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.metric-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.metric-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius);
+  padding: var(--space-4); text-align: left; cursor: pointer; font: inherit; color: var(--color-text);
+  min-height: 120px; box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.metric-card:hover { border-color: var(--color-secondary); }
+.metric-card:focus-visible { outline: 2px solid var(--color-secondary); outline-offset: 2px; }
+.metric-label { font-size: 14px; font-weight: 600; }
+.metric-value { font-size: 32px; font-weight: 700; color: var(--color-primary); line-height: 1.1; }
+.metric-link { font-size: 13px; color: var(--color-secondary); }
+
+.dashboard-columns { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; }
+.dashboard-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+.plain-list { list-style: none; margin: 0; padding: 0; }
+.plain-list > li + li { border-top: 1px solid #EEF2EF; }
+.list-row, .bar-row {
+  display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 12px;
+  background: none; border: none; padding: 10px 4px; font: inherit; color: inherit; text-align: left;
+  cursor: pointer; min-height: 44px;
+}
+.list-row:hover, .bar-row:hover { background: var(--color-pale); }
+.list-row:focus-visible, .bar-row:focus-visible { outline: 2px solid var(--color-secondary); outline-offset: -2px; }
+.list-row-main { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list-row-main strong { color: var(--color-primary); margin-right: 6px; }
+.list-row-meta { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+.bar-label { width: 170px; flex-shrink: 0; }
+.bar-track { flex: 1; height: 8px; background: #EEF2EF; border-radius: 999px; overflow: hidden; }
+.bar-fill { display: block; height: 100%; background: var(--color-secondary); }
+.bar-count { width: 32px; text-align: right; font-weight: 700; }
+.quick-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+
+/* Status badges: text label always present (ui-spec.md §6) */
+.badge-st-new, .badge-st-open, .badge-st-reopened { background: var(--color-pale); color: var(--color-primary); }
+.badge-st-in_progress { background: #FDF0DA; color: #8A5A08; }
+.badge-st-waiting_for_requester { background: #E3ECF3; color: #2D4A60; }
+.badge-st-resolved { background: #D7F0E1; color: var(--color-success); }
+.badge-st-closed, .badge-st-cancelled { background: #E7EBE8; color: #3D4842; }
+.badge-act-open { background: #FDF0DA; color: #8A5A08; }
+.badge-act-completed { background: #D7F0E1; color: var(--color-success); }
+.badge-act-cancelled { background: #E7EBE8; color: #3D4842; }
+
+.callout-warning { background: #FDF0DA; color: #6E4806; }
+
+/* Tables scroll inside their container, never the page */
+.table-scroll { width: 100%; overflow-x: auto; }
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th, .data-table td { text-align: left; padding: 8px; border-bottom: 1px solid #EEF2EF; vertical-align: top; }
+.truncate { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.form-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+.field[data-readonly="true"] textarea { background: var(--color-readonly-bg); }
+.field select:disabled { background: var(--color-readonly-bg); }
+.history-list { margin: 0; padding-left: 20px; font-size: 14px; }
+.history-list li { margin-bottom: 4px; }
+.action-card { padding: 12px 0; }
+.action-card-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+.dialog-backdrop { position: fixed; inset: 0; background: rgba(31,42,36,0.45); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
+.dialog { max-width: 420px; width: 100%; }
+
+@media (max-width: 1023px) {
+  .metric-grid-5, .metric-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dashboard-columns { grid-template-columns: 1fr; }
+}
+@media (max-width: 767px) {
+  .metric-grid-5, .metric-grid-4, .form-grid-2 { grid-template-columns: 1fr; }
+  .bar-label { width: 120px; }
+  .hide-on-mobile { display: none; }
+  main { padding: 16px !important; }
+  .card { padding: var(--space-4); }
+  /* Actions Taken table becomes stacked cards */
+  .stack-on-mobile thead { display: none; }
+  .stack-on-mobile, .stack-on-mobile tbody, .stack-on-mobile tr, .stack-on-mobile td { display: block; width: 100%; }
+  .stack-on-mobile tr { border: 1px solid var(--color-border); border-radius: var(--radius); margin-bottom: 12px; padding: 8px; }
+  .stack-on-mobile td { border: none; padding: 4px 0; max-width: none; white-space: normal; }
+  .stack-on-mobile td[data-label]::before { content: attr(data-label) ": "; font-weight: 600; }
+}

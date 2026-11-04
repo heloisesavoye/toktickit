@@ -18,6 +18,9 @@ test("Valid login shows the authenticated shell with role badge", async ({ page 
   await page.getByLabel(/Email address/i).fill(STAFF.email);
   await page.getByLabel(/^Password/i).fill(STAFF.password);
   await page.getByRole("button", { name: /sign in/i }).click();
+  // Lab 4: the role Dashboard is now the landing page (FR-19); open the queue from the nav.
+  await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
+  await page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: /ticket queue/i }).click();
   await expect(page.getByRole("heading", { name: /ticket queue/i })).toBeVisible();
   await expect(page.getByRole("banner").getByText(/priya nakamura/i)).toBeVisible();
   await expect(page.getByRole("banner").getByText(/it staff/i)).toBeVisible();
@@ -51,6 +54,9 @@ test("Sign-in button shows a busy state while the request is in flight", async (
   // Busy label swaps in briefly; assert it appeared at some point during the request.
   await expect(page.getByRole("button", { name: /signing in/i })).toBeVisible({ timeout: 2000 }).catch(() => {});
   await shot(page, "busy-state", testInfo.project.name);
+  // Lab 4: the role Dashboard is now the landing page (FR-19); open the queue from the nav.
+  await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
+  await page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: /ticket queue/i }).click();
   await expect(page.getByRole("heading", { name: /ticket queue/i })).toBeVisible();
 });
 
@@ -98,6 +104,9 @@ test("Mandatory first-login password change, then normal access", async ({ page,
   await page.getByLabel(/^New password/i).fill(newPassword);
   await page.getByLabel(/Confirm new password/i).fill(newPassword);
   await page.getByRole("button", { name: /continue/i }).click();
+  // Lab 4: the role Dashboard is now the landing page (FR-19); open the queue from the nav.
+  await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
+  await page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: /ticket queue/i }).click();
   await expect(page.getByRole("heading", { name: /ticket queue/i })).toBeVisible();
 });
 
@@ -106,6 +115,9 @@ test("Logout returns to the login screen and blocks further access", async ({ pa
   await page.getByLabel(/Email address/i).fill(STAFF.email);
   await page.getByLabel(/^Password/i).fill(STAFF.password);
   await page.getByRole("button", { name: /sign in/i }).click();
+  // Lab 4: the role Dashboard is now the landing page (FR-19); open the queue from the nav.
+  await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
+  await page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: /ticket queue/i }).click();
   await expect(page.getByRole("heading", { name: /ticket queue/i })).toBeVisible();
 
   await page.getByRole("button", { name: /logout/i }).click();

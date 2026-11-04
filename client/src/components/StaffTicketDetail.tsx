@@ -3,6 +3,9 @@ import { api, ApiError } from "../api/client";
 import { Badge, priorityVariant } from "./ui/Badge";
 import { Button } from "./ui/Button";
 import { STATUS_OPTIONS_FOR } from "../lib/statusTransitions";
+import { ActionsTaken, type Action } from "./ActionsTaken";
+import { StatusBadge } from "./dashboard/MetricCard";
+import { formatDateTime, statusLabel } from "../lib/labels";
 
 type Note = { id: number; content: string; createdAt: string; author: { name: string } };
 type Comment = { id: number; content: string; createdAt: string; author: { name: string; role: string } };
@@ -24,6 +27,11 @@ type TicketDetail = {
   attachments: any[];
   comments: Comment[];
   notes: Note[];
+  // Lab 4 (api-spec.md §3)
+  version?: number;
+  actions?: Action[];
+  statusHistory?: { id: number; fromStatus: string; toStatus: string; changedAt: string; changedBy: { name: string } }[];
+  resolutionGate?: { allowed: boolean; reason: string | null };
 };
 
 type Status = "loading" | "ready" | "not-found" | "error";
@@ -38,6 +46,7 @@ export function StaffTicketDetail({ ticketId, onBack }: { ticketId: number; onBa
   const [commentDraft, setCommentDraft] = useState("");
   const [noteDraft, setNoteDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  const [changingStatus, setChangingStatus] = useState(false);
 
   function load() {
     setStatus("loading");
@@ -69,15 +78,28 @@ export function StaffTicketDetail({ ticketId, onBack }: { ticketId: number; onBa
     load();
   }
 
+  // Lab 4 FR-13/FR-14: send the version we saw so a concurrent change is
+  // detected (STALE_UPDATE); refresh the summary after success or conflict.
   async function handleStatusChange(currentStatus: string) {
+    if (changingStatus) return;
     setTransitionError(null);
+    setChangingStatus(true);
     try {
-      await api.setStatus(ticketId, currentStatus);
+      if (ticket?.version !== undefined) {
+        await api.setStatus(ticketId, currentStatus, ticket.version);
+      } else {
+        await api.setStatus(ticketId, currentStatus);
+      }
       load();
     } catch (err) {
       if (err instanceof ApiError) {
         setTransitionError(err.message2 ?? "That status change is not allowed from here.");
+        if (err.code === "STALE_UPDATE" || err.code === "RESOLUTION_BLOCKED") load();
+      } else {
+        setTransitionError("Couldn't change the status. Please try again.");
       }
+    } finally {
+      setChangingStatus(false);
     }
   }
 
@@ -109,6 +131,12 @@ export function StaffTicketDetail({ ticketId, onBack }: { ticketId: number; onBa
   if (status === "error" || !ticket) {
     return <div className="callout callout-error" role="alert">Unable to load this ticket. Please try again.</div>;
   }
+
+  const gateBlocksResolve =
+    ticket.resolutionGate !== undefined &&
+    !ticket.resolutionGate.allowed &&
+    STATUS_OPTIONS_FOR(ticket.currentStatus).includes("RESOLVED");
+  const ticketFinal = ticket.currentStatus === "CLOSED" || ticket.currentStatus === "CANCELLED";
 
   return (
     <div>
@@ -153,13 +181,25 @@ export function StaffTicketDetail({ ticketId, onBack }: { ticketId: number; onBa
             <select
               id="currentStatus"
               value={ticket.currentStatus}
+              disabled={changingStatus}
+              aria-describedby={gateBlocksResolve ? "resolve-hint" : undefined}
               onChange={(e) => handleStatusChange(e.target.value)}
             >
-              <option value={ticket.currentStatus}>{ticket.currentStatus}</option>
-              {STATUS_OPTIONS_FOR(ticket.currentStatus).map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
+              <option value={ticket.currentStatus}>{statusLabel(ticket.currentStatus)} (current)</option>
+              {STATUS_OPTIONS_FOR(ticket.currentStatus).map((s) => {
+                const blocked = s === "RESOLVED" && gateBlocksResolve;
+                return (
+                  <option key={s} value={s} disabled={blocked}>
+                    {statusLabel(s)}{blocked ? " (complete an action first)" : ""}
+                  </option>
+                );
+              })}
             </select>
+            {gateBlocksResolve && (
+              <span id="resolve-hint" style={{ fontSize: 12, color: "var(--color-warning)" }}>
+                {ticket.resolutionGate?.reason}
+              </span>
+            )}
             {ticket.appearsResolved && (
               <span style={{ fontSize: 12, color: "var(--color-success)" }}>Requester marked this as resolved</span>
             )}
@@ -176,7 +216,25 @@ export function StaffTicketDetail({ ticketId, onBack }: { ticketId: number; onBa
           <label>Description</label>
           <textarea readOnly value={ticket.description} />
         </div>
+
+        {ticket.statusHistory && ticket.statusHistory.length > 0 && (
+          <div>
+            <h3 style={{ fontSize: 15, marginBottom: 4 }}>Status history</h3>
+            <ol className="history-list">
+              {ticket.statusHistory.map((h) => (
+                <li key={h.id}>
+                  <span className="muted">{formatDateTime(h.changedAt)}</span> — {h.changedBy.name} changed{" "}
+                  <StatusBadge status={h.fromStatus} /> → <StatusBadge status={h.toStatus} />
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
       </div>
+
+      {ticket.actions && (
+        <ActionsTaken ticketId={ticket.id} actions={ticket.actions} ticketFinal={ticketFinal} onChanged={load} />
+      )}
 
       <div className="card" style={{ marginTop: 16 }}>
         <h2>Attachments</h2>

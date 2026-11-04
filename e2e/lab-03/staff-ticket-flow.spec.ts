@@ -14,6 +14,9 @@ async function loginStaff(page: import("@playwright/test").Page) {
   await page.getByLabel(/Email address/i).fill(STAFF.email);
   await page.getByLabel(/^Password/i).fill(STAFF.password);
   await page.getByRole("button", { name: /sign in/i }).click();
+  // Lab 4: the role Dashboard is now the landing page (FR-19); open the queue from the nav.
+  await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
+  await page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: /ticket queue/i }).click();
   await expect(page.getByRole("heading", { name: /ticket queue/i })).toBeVisible();
 }
 
@@ -128,7 +131,8 @@ test("Direct API call: a Requester session is blocked (403) from a Staff-only en
   await page.getByLabel(/Email address/i).fill(REQUESTER.email);
   await page.getByLabel(/^Password/i).fill(REQUESTER.password);
   await page.getByRole("button", { name: /sign in/i }).click();
-  await expect(page.getByRole("heading", { name: /my tickets/i })).toBeVisible();
+  // Lab 4: Requesters land on their Dashboard (FR-19).
+  await expect(page.getByRole("heading", { name: /welcome, /i })).toBeVisible();
 
   // ...then hit the staff-only endpoint directly (bypassing the UI entirely).
   const cookies = await page.context().cookies();

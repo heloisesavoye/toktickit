@@ -9,27 +9,31 @@ import { RequesterTicketDetail } from "./components/RequesterTicketDetail";
 import { StaffTicketQueue } from "./components/StaffTicketQueue";
 import { StaffTicketDetail } from "./components/StaffTicketDetail";
 import { UserManagement } from "./components/UserManagement";
+import { StaffDashboard } from "./components/dashboard/StaffDashboard";
+import { RequesterDashboard } from "./components/dashboard/RequesterDashboard";
+import type { ListFilter } from "./lib/labels";
 import "./theme/tokens.css";
 
 type Route =
-  | { name: "my-tickets" }
+  | { name: "dashboard" }
+  | { name: "my-tickets"; filter?: ListFilter }
   | { name: "create-ticket" }
   | { name: "ticket-detail"; id: number }
-  | { name: "staff-queue" }
+  | { name: "staff-queue"; filter?: ListFilter }
   | { name: "staff-ticket-detail"; id: number }
   | { name: "admin-users" };
 
 function AppInner() {
   const { status, user } = useAuth();
-  const [route, setRoute] = useState<Route>({ name: "my-tickets" });
+  // Lab 4 FR-19: the role dashboard is the landing page after login.
+  const [route, setRoute] = useState<Route>({ name: "dashboard" });
 
   if (status === "loading") return <p role="status">Loading…</p>;
   if (status === "anonymous" || !user) return <Login />;
   if (user.requiresPasswordChange) return <ChangePassword />;
 
   // FR-07: default landing route depends on role.
-  const homeRoute: Route =
-    user.role === "REQUESTER" ? { name: "my-tickets" } : { name: "staff-queue" };
+  const homeRoute: Route = { name: "dashboard" };
   const effectiveRoute =
     (user.role === "REQUESTER" && ["staff-queue", "staff-ticket-detail", "admin-users"].includes(route.name)) ||
     (user.role !== "REQUESTER" && ["my-tickets", "create-ticket", "ticket-detail"].includes(route.name)) ||
@@ -46,8 +50,24 @@ function AppInner() {
 
   return (
     <AppShell active={activePage} onNavigate={(page) => setRoute({ name: page } as Route)}>
+      {effectiveRoute.name === "dashboard" && user.role === "REQUESTER" && (
+        <RequesterDashboard
+          onDrillDown={(filter) => setRoute({ name: "my-tickets", filter })}
+          onOpenTicket={(id) => setRoute({ name: "ticket-detail", id })}
+          onCreate={() => setRoute({ name: "create-ticket" })}
+        />
+      )}
+      {effectiveRoute.name === "dashboard" && user.role !== "REQUESTER" && (
+        <StaffDashboard
+          onDrillDown={(filter) => setRoute({ name: "staff-queue", filter })}
+          onOpenTicket={(id) => setRoute({ name: "staff-ticket-detail", id })}
+          onOpenUsers={user.role === "ADMINISTRATOR" ? () => setRoute({ name: "admin-users" }) : undefined}
+        />
+      )}
       {effectiveRoute.name === "my-tickets" && (
         <MyTickets
+          key={JSON.stringify(effectiveRoute.filter ?? {})}
+          initialFilter={effectiveRoute.filter}
           onOpen={(id) => setRoute({ name: "ticket-detail", id })}
           onCreate={() => setRoute({ name: "create-ticket" })}
         />
@@ -59,7 +79,11 @@ function AppInner() {
         <RequesterTicketDetail ticketId={effectiveRoute.id} onBack={() => setRoute({ name: "my-tickets" })} />
       )}
       {effectiveRoute.name === "staff-queue" && (
-        <StaffTicketQueue onOpen={(id) => setRoute({ name: "staff-ticket-detail", id })} />
+        <StaffTicketQueue
+          key={JSON.stringify(effectiveRoute.filter ?? {})}
+          initialFilter={effectiveRoute.filter}
+          onOpen={(id) => setRoute({ name: "staff-ticket-detail", id })}
+        />
       )}
       {effectiveRoute.name === "staff-ticket-detail" && (
         <StaffTicketDetail ticketId={effectiveRoute.id} onBack={() => setRoute({ name: "staff-queue" })} />

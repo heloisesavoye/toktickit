@@ -2,6 +2,7 @@ const BASE = (import.meta as any).env?.VITE_API_BASE ?? "http://localhost:4000/a
 
 export class ApiError extends Error {
   code?: string;
+  current?: any; // Lab 4: STALE_UPDATE returns the latest record
   fields?: Record<string, string>;
   message2?: string;
   status: number;
@@ -23,7 +24,9 @@ async function request(path: string, options: RequestInit = {}) {
   if (res.status === 204) return null;
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new ApiError(res.status, body?.error?.code, body?.error?.fields, body?.error?.message);
+    const err = new ApiError(res.status, body?.error?.code, body?.error?.fields, body?.error?.message);
+    if (body?.current !== undefined) err.current = body.current;
+    throw err;
   }
   return body;
 }
@@ -75,8 +78,27 @@ export const api = {
     request(`/staff/tickets/${id}/assign`, { method: "POST", body: JSON.stringify({ ownerId }) }),
   setItPriority: (id: number, itPriority: string) =>
     request(`/staff/tickets/${id}/priority`, { method: "PATCH", body: JSON.stringify({ itPriority }) }),
-  setStatus: (id: number, currentStatus: string) =>
-    request(`/staff/tickets/${id}/status`, { method: "PATCH", body: JSON.stringify({ currentStatus }) }),
+  setStatus: (id: number, currentStatus: string, expectedVersion?: number) =>
+    request(`/staff/tickets/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify(expectedVersion === undefined ? { currentStatus } : { currentStatus, expectedVersion }),
+    }),
+
+  // Lab 4: Actions Taken (docs/lab-04/api-spec.md §2)
+  listAssignees: () => request("/staff/assignees"),
+  listActions: (ticketId: number) => request(`/staff/tickets/${ticketId}/actions`),
+  createAction: (ticketId: number, data: unknown) =>
+    request(`/staff/tickets/${ticketId}/actions`, { method: "POST", body: JSON.stringify(data) }),
+  updateAction: (actionId: number, data: unknown) =>
+    request(`/staff/actions/${actionId}`, { method: "PATCH", body: JSON.stringify(data) }),
+  completeAction: (actionId: number, version: number) =>
+    request(`/staff/actions/${actionId}/complete`, { method: "POST", body: JSON.stringify({ version }) }),
+  cancelAction: (actionId: number, version: number) =>
+    request(`/staff/actions/${actionId}/cancel`, { method: "POST", body: JSON.stringify({ version }) }),
+
+  // Lab 4: dashboards (api-spec.md §4)
+  getRequesterDashboard: () => request("/dashboard/requester"),
+  getStaffDashboard: () => request("/dashboard/staff"),
 
   // Administrator user management
   listUsers: (params: URLSearchParams) => request(`/admin/users?${params.toString()}`),

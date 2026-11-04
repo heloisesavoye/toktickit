@@ -3,6 +3,8 @@ import { api } from "../api/client";
 import { Badge, priorityVariant } from "./ui/Badge";
 import { Button } from "./ui/Button";
 import { AttachmentSection } from "./AttachmentSection";
+import type { Action } from "./ActionsTaken";
+import { ACTION_STATUS_LABELS, formatDateTime } from "../lib/labels";
 
 type Comment = { id: number; content: string; createdAt: string; author: { name: string; role: string } };
 
@@ -20,6 +22,7 @@ type TicketDetail = {
   description: string;
   attachments: any[];
   comments: Comment[];
+  actions?: Action[]; // Lab 4: read-only (FR-06, BR-14)
 };
 
 type Status = "loading" | "ready" | "not-found" | "error";
@@ -130,6 +133,35 @@ export function RequesterTicketDetail({ ticketId, onBack }: { ticketId: number; 
           </div>
         )}
       </div>
+
+      {ticket.actions && (
+        <section className="card" style={{ marginTop: 16 }} aria-labelledby="req-actions-h">
+          <h2 id="req-actions-h">Actions Taken by IT Support</h2>
+          {ticket.actions.length === 0 ? (
+            <p className="muted">IT Support hasn't recorded any actions on this ticket yet.</p>
+          ) : (
+            <ul className="plain-list">
+              {ticket.actions.map((a) => (
+                <li key={a.id} className="action-card">
+                  <div className="action-card-head">
+                    <strong>{formatDateTime(a.actionAt)}</strong>
+                    <span className="muted">by {a.performedBy.name}</span>
+                    <span className={`badge badge-act-${a.status.toLowerCase()}`}>{ACTION_STATUS_LABELS[a.status]}</span>
+                  </div>
+                  <p style={{ margin: "4px 0" }}>{a.description}</p>
+                  <p style={{ margin: "4px 0" }}><strong>Result:</strong> {a.result}</p>
+                  {a.followUpRequired && a.followUpNote && (
+                    <p style={{ margin: "4px 0" }}><strong>Follow-up:</strong> {a.followUpNote}</p>
+                  )}
+                  {a.attachmentNotes && (
+                    <p style={{ margin: "4px 0" }}><strong>Attachment notes:</strong> {a.attachmentNotes}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       <AttachmentSection ticketId={ticket.id} attachments={ticket.attachments} onChanged={load} />
 

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useAuth } from "../context/AuthContext";
 import { Badge } from "./ui/Badge";
 
-export type Page = "my-tickets" | "create-ticket" | "staff-queue" | "admin-users";
+export type Page = "dashboard" | "my-tickets" | "create-ticket" | "staff-queue" | "admin-users";
 
 const ROLE_BADGE: Record<string, { label: string }> = {
   REQUESTER: { label: "Requester" },
@@ -27,12 +27,17 @@ export function AppShell({
   const navItems: { page: Page; label: string }[] =
     user.role === "REQUESTER"
       ? [
+          { page: "dashboard", label: "Dashboard" },
           { page: "my-tickets", label: "My Tickets" },
           { page: "create-ticket", label: "+ Create Ticket" },
         ]
       : user.role === "IT_STAFF"
-      ? [{ page: "staff-queue", label: "Ticket Queue" }]
+      ? [
+          { page: "dashboard", label: "Dashboard" },
+          { page: "staff-queue", label: "Ticket Queue" },
+        ]
       : [
+          { page: "dashboard", label: "Dashboard" },
           { page: "staff-queue", label: "Ticket Queue" },
           { page: "admin-users", label: "Admin" },
         ];
@@ -52,15 +57,12 @@ export function AppShell({
         }}
       >
         <strong>TokTickIT</strong>
-        <nav style={{ display: "flex", gap: 20 }}>
+        <nav aria-label="Main" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {navItems.map((item) => (
             <button
               key={item.page}
-              className="btn-tertiary"
-              style={{
-                color: active === item.page ? "white" : "#CDEBDA",
-                fontWeight: active === item.page ? 700 : 400,
-              }}
+              className={`btn-tertiary nav-item${active === item.page ? " nav-item-active" : ""}`}
+              aria-current={active === item.page ? "page" : undefined}
               onClick={() => onNavigate(item.page)}
             >
               {item.label}

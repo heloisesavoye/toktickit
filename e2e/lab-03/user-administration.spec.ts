@@ -11,6 +11,9 @@ async function loginAdmin(page: import("@playwright/test").Page) {
   await page.getByLabel(/Email address/i).fill(ADMIN.email);
   await page.getByLabel(/^Password/i).fill(ADMIN.password);
   await page.getByRole("button", { name: /sign in/i }).click();
+  // Lab 4: the role Dashboard is now the landing page (FR-19); open the queue from the nav.
+  await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
+  await page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: /ticket queue/i }).click();
   await expect(page.getByRole("heading", { name: /ticket queue/i })).toBeVisible();
   await page.getByRole("button", { name: /^admin$/i }).click();
   await expect(page.getByRole("heading", { name: /^users$/i })).toBeVisible();
@@ -115,6 +118,9 @@ test("Direct API: an IT Staff session is blocked (403) from the Admin users endp
   await page.getByLabel(/Email address/i).fill(STAFF.email);
   await page.getByLabel(/^Password/i).fill(STAFF.password);
   await page.getByRole("button", { name: /sign in/i }).click();
+  // Lab 4: the role Dashboard is now the landing page (FR-19); open the queue from the nav.
+  await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
+  await page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: /ticket queue/i }).click();
   await expect(page.getByRole("heading", { name: /ticket queue/i })).toBeVisible();
   // The nav has no "Admin" link for IT Staff at all — forbidden at the UI level too.
   await expect(page.getByRole("button", { name: /^admin$/i })).not.toBeVisible();

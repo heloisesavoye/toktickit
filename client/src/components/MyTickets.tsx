@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { Badge, priorityVariant } from "./ui/Badge";
 import { Button } from "./ui/Button";
+import { StatusBadge } from "./dashboard/MetricCard";
+import type { ListFilter } from "../lib/labels";
 
 type Ticket = {
   id: number;
@@ -17,13 +19,21 @@ type Ticket = {
 type ListState = "loading" | "EMPTY" | "NO_RESULTS" | "OK" | "error";
 
 // Implements My Tickets per ui-spec.md §10 and api-spec.md GET /api/tickets.
-export function MyTickets({ onOpen, onCreate }: { onOpen: (id: number) => void; onCreate: () => void }) {
+export function MyTickets({
+  onOpen,
+  onCreate,
+  initialFilter = {},
+}: {
+  onOpen: (id: number) => void;
+  onCreate: () => void;
+  initialFilter?: ListFilter; // Lab 4: dashboard drill-down (AC-15)
+}) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [state, setState] = useState<ListState>("loading");
   const [meta, setMeta] = useState({ page: 1, totalPages: 1, totalItems: 0 });
 
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(initialFilter.status ?? "");
   const [page, setPage] = useState(1);
 
   useEffect(() => {
@@ -70,6 +80,7 @@ export function MyTickets({ onOpen, onCreate }: { onOpen: (id: number) => void; 
         />
         <select value={status} onChange={(e) => { setPage(1); setStatus(e.target.value); }}>
           <option value="">All Statuses</option>
+          <option value="ACTIVE">All active</option>
           <option value="NEW">New</option>
           <option value="OPEN">Open</option>
           <option value="IN_PROGRESS">In Progress</option>
@@ -110,7 +121,7 @@ export function MyTickets({ onOpen, onCreate }: { onOpen: (id: number) => void; 
                   <td>{t.summary}</td>
                   <td>{t.category?.name}</td>
                   <td><Badge label={t.requestedPriority} variant={priorityVariant(t.requestedPriority)} /></td>
-                  <td><Badge label={t.currentStatus} variant="status" /></td>
+                  <td><StatusBadge status={t.currentStatus} /></td>
                   <td>{new Date(t.updatedAt).toLocaleString()}</td>
                 </tr>
               ))}
