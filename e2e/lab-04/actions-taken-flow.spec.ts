@@ -31,12 +31,15 @@ test("IT Staff records, edits, completes and cancels Actions Taken on one Ticket
   await section.getByRole("button", { name: /add action/i }).click();
   await section.getByLabel(/Action Description/i).fill("Renewed the VPN client certificate");
   await section.getByLabel(/^Result/i).fill("Pending verification by requester");
+  // Match the colleague by partial name: the Lab 3 admin E2E edits this
+  // seeded user's name ("… (Updated)") in the shared dev database.
   const assignee = section.getByLabel(/Assignee/i);
-  await expect(assignee.locator("option", { hasText: STAFF2.name })).toHaveCount(1); // assignees load async
-  await assignee.selectOption({ label: STAFF2.name });
+  const colleague = assignee.locator("option", { hasText: STAFF2.name });
+  await expect(colleague).toHaveCount(1); // assignees load async
+  await assignee.selectOption((await colleague.getAttribute("value"))!);
   await section.getByRole("button", { name: /save action/i }).click();
   await expect(section.getByText("Renewed the VPN client certificate")).toBeVisible();
-  await expect(section.getByText(STAFF2.name)).toBeVisible();
+  await expect(section.getByText(new RegExp(STAFF2.name))).toBeVisible();
   await shot(page, "actions-taken", p, "list");
   await expectNoHorizontalScroll(page);
 
