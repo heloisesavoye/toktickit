@@ -84,6 +84,18 @@ Status column: **Planned** → **Pass** / **Fail** once run on `main`.
 | A11Y-01 | Accessibility | AC-26 | Keyboard: Tab to a dashboard card, Enter opens list; focus outline visible | Navigates; outline present | e2e/lab-04/dashboards.spec.ts | Planned |
 | REG-03 | Regression | AC-27 | Lab 2/3 E2E (auth, requester flow, staff flow, admin) | All pass | e2e/lab-02/**, e2e/lab-03/** | Planned |
 
+### Regression test changes (justified)
+- `e2e/lab-03/*.spec.ts`: login helpers now expect the new Dashboard landing
+  page (FR-19) and open the Ticket Queue from the nav; every original assertion
+  is unchanged.
+- `e2e/lab-02/requester-ticket-flow.spec.ts`: still used the Development
+  Requester selector removed in Lab 3, so it could not run; rewritten to log in
+  as seeded Requesters while testing the same behaviors (create + number,
+  cross-Requester isolation).
+- `server/tests/lab-02/testUtils.ts`, `server/tests/lab-03/testUtils.ts`:
+  `resetDatabase()` also clears the two new Lab 4 child tables first (foreign
+  keys).
+
 ## 3. Traceability (AC → tests)
 | AC | Tests |
 |---|---|
