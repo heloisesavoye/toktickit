@@ -141,7 +141,8 @@ describe("ActionsTaken", () => {
     expect(api.cancelAction).not.toHaveBeenCalled();
 
     await userEvent.click(screen.getByRole("button", { name: /Cancel action/i }));
-    const confirm = screen.getAllByRole("button", { name: /Cancel action/i }).at(-1)!;
+    const cancelButtons = screen.getAllByRole("button", { name: /Cancel action/i });
+    const confirm = cancelButtons[cancelButtons.length - 1]; // the dialog's button
     await userEvent.click(confirm);
     expect(api.cancelAction).toHaveBeenCalledWith(2, 2);
   });
