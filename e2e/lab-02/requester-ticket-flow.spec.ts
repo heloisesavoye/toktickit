@@ -23,7 +23,9 @@ test("requester creates a ticket and sees the generated ticket number", async ({
   await page.getByLabel(/Ticket Summary/i).fill("Laptop battery drains quickly");
   await page.getByLabel(/Description/i).fill("The battery drains fast even when idle.");
   await page.getByRole("button", { name: /submit ticket/i }).click();
-  await expect(page.getByText(/TKT-\d{4}-\d{6}/).first()).toBeVisible();
+  // The new ticket's detail opens; its official number is shown in the
+  // read-only "Ticket No." field (an input value, which getByText ignores).
+  await expect(page.locator("main input").first()).toHaveValue(/^TKT-\d{4}-\d{6}$/);
 });
 
 test("a Requester's My Tickets never shows another Requester's tickets", async ({ page }) => {

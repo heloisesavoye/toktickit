@@ -48,8 +48,11 @@ export function StaffTicketDetail({ ticketId, onBack }: { ticketId: number; onBa
   const [busy, setBusy] = useState(false);
   const [changingStatus, setChangingStatus] = useState(false);
 
-  function load() {
-    setStatus("loading");
+  // `silent` = refresh after one of our own changes: keep the screen (and any
+  // success message, form state or focus inside it) instead of flashing the
+  // full-page "Loading ticket…" state (Lab 4 hardening, FR-21/FR-23).
+  function load(silent = false) {
+    if (!silent) setStatus("loading");
     api
       .getStaffTicket(ticketId)
       .then((res) => {
@@ -60,14 +63,15 @@ export function StaffTicketDetail({ ticketId, onBack }: { ticketId: number; onBa
         setStatus(err?.status === 404 ? "not-found" : "error");
       });
   }
+  const refresh = () => load(true);
 
-  useEffect(load, [ticketId]);
+  useEffect(() => load(), [ticketId]);
 
   async function handleClaim() {
     setBusy(true);
     try {
       await api.claimTicket(ticketId);
-      load();
+      refresh();
     } finally {
       setBusy(false);
     }
@@ -75,7 +79,7 @@ export function StaffTicketDetail({ ticketId, onBack }: { ticketId: number; onBa
 
   async function handlePriorityChange(itPriority: string) {
     await api.setItPriority(ticketId, itPriority);
-    load();
+    refresh();
   }
 
   // Lab 4 FR-13/FR-14: send the version we saw so a concurrent change is
@@ -90,11 +94,11 @@ export function StaffTicketDetail({ ticketId, onBack }: { ticketId: number; onBa
       } else {
         await api.setStatus(ticketId, currentStatus);
       }
-      load();
+      refresh();
     } catch (err) {
       if (err instanceof ApiError) {
         setTransitionError(err.message2 ?? "That status change is not allowed from here.");
-        if (err.code === "STALE_UPDATE" || err.code === "RESOLUTION_BLOCKED") load();
+        if (err.code === "STALE_UPDATE" || err.code === "RESOLUTION_BLOCKED") refresh();
       } else {
         setTransitionError("Couldn't change the status. Please try again.");
       }
@@ -108,7 +112,7 @@ export function StaffTicketDetail({ ticketId, onBack }: { ticketId: number; onBa
     if (commentDraft.trim().length === 0) return;
     await api.postComment(ticketId, commentDraft.trim());
     setCommentDraft("");
-    load();
+    refresh();
   }
 
   async function handlePostNote(e: React.FormEvent) {
@@ -116,7 +120,7 @@ export function StaffTicketDetail({ ticketId, onBack }: { ticketId: number; onBa
     if (noteDraft.trim().length === 0) return;
     await api.postNote(ticketId, noteDraft.trim());
     setNoteDraft("");
-    load();
+    refresh();
   }
 
   if (status === "loading") return <p role="status">Loading ticket…</p>;
@@ -233,7 +237,7 @@ export function StaffTicketDetail({ ticketId, onBack }: { ticketId: number; onBa
       </div>
 
       {ticket.actions && (
-        <ActionsTaken ticketId={ticket.id} actions={ticket.actions} ticketFinal={ticketFinal} onChanged={load} />
+        <ActionsTaken ticketId={ticket.id} actions={ticket.actions} ticketFinal={ticketFinal} onChanged={refresh} />
       )}
 
       <div className="card" style={{ marginTop: 16 }}>
