@@ -7,6 +7,9 @@ import { hashPassword } from "../../src/lib/auth.js";
 // Requires a real test database (set DATABASE_URL to a disposable DB before
 // running `npm run test`).
 export async function resetDatabase() {
+  // Lab 4 child tables first (FK to Ticket/User).
+  await prisma.actionTaken.deleteMany();
+  await prisma.ticketStatusChange.deleteMany();
   await prisma.publicComment.deleteMany();
   await prisma.internalNote.deleteMany();
   await prisma.attachment.deleteMany();

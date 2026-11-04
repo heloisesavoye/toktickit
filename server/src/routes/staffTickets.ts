@@ -9,6 +9,8 @@ import {
   isValidTransition,
   validatePriority,
 } from "../lib/validators.js";
+import { ACTIVE_STATUSES, evaluateResolutionGate } from "../lib/actions.js";
+import { ACTION_INCLUDE, ACTION_ORDER } from "./actions.js";
 
 const router = Router();
 
@@ -42,9 +44,14 @@ router.get("/tickets", async (req, res, next) => {
     }
     if (PRIORITIES.includes(req.query.itPriority as any)) {
       where.itPriority = req.query.itPriority;
+    } else if (req.query.itPriority === "UNSET") {
+      where.itPriority = null; // Lab 4 dashboard "byItPriority.UNSET" drill-down
     }
     if (STATUSES.includes(req.query.status as any)) {
       where.currentStatus = req.query.status;
+    } else if (req.query.status === "ACTIVE") {
+      // Lab 4: dashboard drill-down (api-spec.md §4) — same set as BR-15.
+      where.currentStatus = { in: [...ACTIVE_STATUSES] };
     }
     if (req.query.ownerId === "unassigned") {
       where.ticketOwnerId = null;
@@ -98,10 +105,23 @@ router.get("/tickets/:id", async (req, res, next) => {
           orderBy: { createdAt: "asc" },
           include: { author: { select: { name: true, role: true } } },
         },
+        // Lab 4: Actions Taken + status history (FR-05, FR-12)
+        actions: { orderBy: ACTION_ORDER, include: ACTION_INCLUDE },
+        statusChanges: {
+          orderBy: [{ changedAt: "asc" }, { id: "asc" }],
+          include: { changedBy: { select: { id: true, name: true } } },
+        },
       },
     });
     if (!ticket) throw new AppError(404, "TICKET_NOT_FOUND");
-    res.json({ data: ticket });
+    const { statusChanges, ...rest } = ticket;
+    res.json({
+      data: {
+        ...rest,
+        statusHistory: statusChanges,
+        resolutionGate: evaluateResolutionGate(ticket.actions),
+      },
+    });
   } catch (err) {
     next(err);
   }
@@ -129,7 +149,7 @@ router.post("/tickets/:id/claim", async (req, res, next) => {
 
     const updated = await prisma.ticket.update({
       where: { id },
-      data: { ticketOwnerId: req.user!.id },
+      data: { ticketOwnerId: req.user!.id, version: { increment: 1 } },
       include: { ticketOwner: { select: { id: true, name: true } } },
     });
 
@@ -153,7 +173,7 @@ router.post("/tickets/:id/assign", async (req, res, next) => {
 
     const updated = await prisma.ticket.update({
       where: { id },
-      data: { ticketOwnerId: candidate.id },
+      data: { ticketOwnerId: candidate.id, version: { increment: 1 } },
       include: { ticketOwner: { select: { id: true, name: true } } },
     });
 
@@ -175,7 +195,7 @@ router.patch("/tickets/:id/priority", async (req, res, next) => {
 
     const updated = await prisma.ticket.update({
       where: { id },
-      data: { itPriority: req.body.itPriority },
+      data: { itPriority: req.body.itPriority, version: { increment: 1 } },
     });
 
     res.json({ data: { itPriority: updated.itPriority } });
@@ -184,7 +204,9 @@ router.patch("/tickets/:id/priority", async (req, res, next) => {
   }
 });
 
-// PATCH /api/staff/tickets/:id/status — FR-16, BR-16, BR-17
+// PATCH /api/staff/tickets/:id/status — Lab 3 FR-16 + Lab 4 FR-10..FR-13
+// (transition matrix, resolution gate BR-08, status history BR-13,
+// optimistic concurrency BR-11, appearsResolved reset BR-12).
 router.patch("/tickets/:id/status", async (req, res, next) => {
   try {
     const id = Number(req.params.id);
@@ -192,25 +214,64 @@ router.patch("/tickets/:id/status", async (req, res, next) => {
     if (!STATUSES.includes(requested)) {
       throw new AppError(400, "VALIDATION_ERROR", { currentStatus: "Unknown status" });
     }
-
-    const ticket = await prisma.ticket.findUnique({ where: { id } });
-    if (!ticket) throw new AppError(404, "TICKET_NOT_FOUND");
-
-    if (!isValidTransition(ticket.currentStatus, requested)) {
-      throw new AppError(
-        409,
-        "INVALID_TRANSITION",
-        undefined,
-        `Cannot move from ${ticket.currentStatus} to ${requested}.`
-      );
+    const rawExpected = req.body?.expectedVersion;
+    const expectedVersion =
+      rawExpected === undefined || rawExpected === null ? undefined : Number(rawExpected);
+    if (expectedVersion !== undefined && !Number.isInteger(expectedVersion)) {
+      throw new AppError(400, "VALIDATION_ERROR", { expectedVersion: "Must be an integer" });
     }
 
-    const updated = await prisma.ticket.update({
-      where: { id },
-      data: { currentStatus: requested },
+    const updated = await prisma.$transaction(async (tx) => {
+      const ticket = await tx.ticket.findUnique({ where: { id } });
+      if (!ticket) throw new AppError(404, "TICKET_NOT_FOUND");
+
+      if (expectedVersion !== undefined && expectedVersion !== ticket.version) {
+        throw new AppError(409, "STALE_UPDATE", undefined, "This ticket was changed by someone else. Reload to see the latest status.");
+      }
+
+      if (!isValidTransition(ticket.currentStatus, requested)) {
+        throw new AppError(
+          409,
+          "INVALID_TRANSITION",
+          undefined,
+          `Cannot move from ${ticket.currentStatus} to ${requested}.`
+        );
+      }
+
+      if (requested === "RESOLVED") {
+        const actions = await tx.actionTaken.findMany({ where: { ticketId: id }, select: { status: true } });
+        const gate = evaluateResolutionGate(actions);
+        if (!gate.allowed) throw new AppError(409, "RESOLUTION_BLOCKED", undefined, gate.reason!);
+      }
+
+      // Atomic compare-and-set on version: a concurrent change between the
+      // read above and this write makes count = 0 (AC-10).
+      const { count } = await tx.ticket.updateMany({
+        where: { id, version: ticket.version },
+        data: {
+          currentStatus: requested,
+          version: { increment: 1 },
+          ...(requested === "REOPENED" ? { appearsResolved: false } : {}),
+        },
+      });
+      if (count !== 1) {
+        throw new AppError(409, "STALE_UPDATE", undefined, "This ticket was changed by someone else. Reload to see the latest status.");
+      }
+
+      await tx.ticketStatusChange.create({
+        data: { ticketId: id, fromStatus: ticket.currentStatus, toStatus: requested, changedById: req.user!.id },
+      });
+
+      return tx.ticket.findUniqueOrThrow({ where: { id } });
     });
 
-    res.json({ data: { currentStatus: updated.currentStatus } });
+    res.json({
+      data: {
+        currentStatus: updated.currentStatus,
+        version: updated.version,
+        appearsResolved: updated.appearsResolved,
+      },
+    });
   } catch (err) {
     next(err);
   }

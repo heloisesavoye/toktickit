@@ -11,6 +11,8 @@ import {
   STATUSES,
   SORTABLE_FIELDS,
 } from "../lib/validators.js";
+import { ACTIVE_STATUSES } from "../lib/actions.js";
+import { ACTION_INCLUDE, ACTION_ORDER } from "./actions.js";
 
 const router = Router();
 
@@ -102,6 +104,9 @@ router.get("/", async (req, res, next) => {
     }
     if (STATUSES.includes(req.query.status as any)) {
       where.currentStatus = req.query.status;
+    } else if (req.query.status === "ACTIVE") {
+      // Lab 4: Requester dashboard drill-down (BR-15, BR-19).
+      where.currentStatus = { in: [...ACTIVE_STATUSES] };
     }
 
     const totalItems = await prisma.ticket.count({ where });
@@ -141,11 +146,31 @@ router.get("/:id", async (req, res, next) => {
         ticketOwner: { select: { id: true, name: true } },
         attachments: { orderBy: { uploadedAt: "desc" } },
         comments: { orderBy: { createdAt: "asc" }, include: { author: { select: { name: true, role: true } } } },
+        // Lab 4: read-only Actions Taken for the Requester (FR-06, BR-14).
+        actions: { orderBy: ACTION_ORDER, include: ACTION_INCLUDE },
       },
     });
     if (!ticket) throw new AppError(404, "TICKET_NOT_FOUND");
 
     res.json({ data: ticket });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/tickets/:id/actions — Lab 4 FR-06, AC-08: read-only, own ticket
+// only; another Requester's ticket is a 404 (no existence leak).
+router.get("/:id/actions", async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const ticket = await prisma.ticket.findFirst({ where: { id, requesterId: req.user!.id } });
+    if (!ticket) throw new AppError(404, "TICKET_NOT_FOUND");
+    const actions = await prisma.actionTaken.findMany({
+      where: { ticketId: id },
+      orderBy: ACTION_ORDER,
+      include: ACTION_INCLUDE,
+    });
+    res.json({ data: actions });
   } catch (err) {
     next(err);
   }

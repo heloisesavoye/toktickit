@@ -26,6 +26,9 @@ function assertTestDatabase() {
 
 export async function resetDatabase() {
   assertTestDatabase();
+  // Lab 4 child tables first (FK to Ticket/User).
+  await prisma.actionTaken.deleteMany();
+  await prisma.ticketStatusChange.deleteMany();
   await prisma.publicComment.deleteMany();
   await prisma.internalNote.deleteMany();
   await prisma.attachment.deleteMany();

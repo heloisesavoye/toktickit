@@ -9,6 +9,8 @@ import attachmentsRouter from "./routes/attachments.js";
 import commentsNotesRouter from "./routes/commentsNotes.js";
 import staffTicketsRouter from "./routes/staffTickets.js";
 import adminUsersRouter from "./routes/adminUsers.js";
+import actionsRouter from "./routes/actions.js";
+import dashboardRouter from "./routes/dashboard.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
 export function createApp() {
@@ -41,6 +43,10 @@ export function createApp() {
 
   // IT Staff Ticket Queue/Detail and Administrator User Management.
   app.use("/api/staff", staffTicketsRouter);
+  // Lab 4: Actions Taken (/api/staff/tickets/:id/actions, /api/staff/actions/*,
+  // /api/staff/assignees) and role dashboards.
+  app.use("/api/staff", actionsRouter);
+  app.use("/api/dashboard", dashboardRouter);
   app.use("/api/admin", adminUsersRouter);
 
   app.use(errorHandler);

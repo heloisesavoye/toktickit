@@ -50,6 +50,9 @@ model User {
   comments         PublicComment[]
   notes            InternalNote[]
   sessions         Session[]
+  actionsPerformed ActionTaken[]        @relation("ActionPerformer")
+  actionsAssigned  ActionTaken[]        @relation("ActionAssignee")
+  statusChanges    TicketStatusChange[]
 
   @@index([role])
   @@index([isActive])
@@ -104,10 +107,16 @@ model Ticket {
   attachments       Attachment[]
   comments          PublicComment[]
   notes             InternalNote[]
+  // Lab 4: optimistic concurrency (BR-11), Actions Taken, status history (BR-13)
+  version           Int                  @default(1)
+  actions           ActionTaken[]
+  statusChanges     TicketStatusChange[]
 
   @@index([requesterId, createdAt])
   @@index([ticketOwnerId])
   @@index([currentStatus])
+  @@index([updatedAt])
+  @@index([itPriority])
 }
 
 model Attachment {
@@ -157,4 +166,52 @@ model InternalNote {
 model TicketSequence {
   year  Int @id
   value Int @default(0)
+}
+
+// Lab 4: Actions Taken (docs/lab-04/specification.md §7, BR-01..BR-11).
+enum ActionStatus {
+  OPEN
+  COMPLETED
+  CANCELLED
+}
+
+model ActionTaken {
+  id               Int          @id @default(autoincrement())
+  ticketId         Int
+  ticket           Ticket       @relation(fields: [ticketId], references: [id])
+  actionAt         DateTime
+  description      String
+  result           String
+  performedById    Int
+  performedBy      User         @relation("ActionPerformer", fields: [performedById], references: [id])
+  assigneeId       Int
+  assignee         User         @relation("ActionAssignee", fields: [assigneeId], references: [id])
+  followUpRequired Boolean      @default(false)
+  followUpNote     String?
+  attachmentNotes  String?
+  status           ActionStatus @default(OPEN)
+  completedAt      DateTime?
+  cancelledAt      DateTime?
+  version          Int          @default(1)
+  // Stable key so `npm run seed` stays idempotent (null for user-created rows).
+  seedKey          String?      @unique
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([ticketId, actionAt])
+  @@index([assigneeId, status])
+}
+
+// Lab 4: append-only Ticket status history (BR-13).
+model TicketStatusChange {
+  id          Int          @id @default(autoincrement())
+  ticketId    Int
+  ticket      Ticket       @relation(fields: [ticketId], references: [id])
+  fromStatus  TicketStatus
+  toStatus    TicketStatus
+  changedById Int
+  changedBy   User         @relation(fields: [changedById], references: [id])
+  changedAt   DateTime     @default(now())
+
+  @@index([ticketId, changedAt])
 }

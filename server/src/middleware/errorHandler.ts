@@ -29,8 +29,12 @@ export function errorHandler(
   _next: NextFunction
 ) {
   if (err instanceof AppError) {
+    // Lab 4 (BR-11): STALE_UPDATE also returns the current record so the
+    // client can show it before the user retries.
+    const current = (err as any).current;
     return res.status(err.status).json({
       error: { code: err.code, message: err.publicMessage, fields: err.fields },
+      ...(current !== undefined ? { current } : {}),
     });
   }
   console.error(err);
