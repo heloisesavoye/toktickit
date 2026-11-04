@@ -4,6 +4,7 @@ import { STAFF, STAFF2, SARAH, ADMIN, API_BASE, login, nav, shot, createTicketAs
 // E2E-01 (AC-01, AC-05, AC-11, AC-13) + Part 6 evidence: list, create, assign,
 // edit, complete, cancel, validation, and several Actions Taken on one Ticket.
 test("IT Staff records, edits, completes and cancels Actions Taken on one Ticket", async ({ page }, testInfo) => {
+  test.setTimeout(90_000); // long multi-step flow, slower on tablet/mobile emulation
   const p = testInfo.project.name;
   const ticket = await createTicketAs(page, SARAH, `E2E actions ${p} ${Date.now()}`);
 
@@ -30,7 +31,9 @@ test("IT Staff records, edits, completes and cancels Actions Taken on one Ticket
   await section.getByRole("button", { name: /add action/i }).click();
   await section.getByLabel(/Action Description/i).fill("Renewed the VPN client certificate");
   await section.getByLabel(/^Result/i).fill("Pending verification by requester");
-  await section.getByLabel(/Assignee/i).selectOption({ label: STAFF2.name });
+  const assignee = section.getByLabel(/Assignee/i);
+  await expect(assignee.locator("option", { hasText: STAFF2.name })).toHaveCount(1); // assignees load async
+  await assignee.selectOption({ label: STAFF2.name });
   await section.getByRole("button", { name: /save action/i }).click();
   await expect(section.getByText("Renewed the VPN client certificate")).toBeVisible();
   await expect(section.getByText(STAFF2.name)).toBeVisible();

@@ -5,6 +5,7 @@ import { STAFF, SARAH, login, nav, shot, createTicketAs } from "./helpers";
 // permitted transitions only, resolution gate, status history, and the
 // Requester's read-only view of Actions Taken.
 test("resolution is blocked until an action is completed, then succeeds", async ({ page }, testInfo) => {
+  test.setTimeout(90_000); // long multi-step flow, slower on tablet/mobile emulation
   const p = testInfo.project.name;
   const ticket = await createTicketAs(page, SARAH, `E2E resolve ${p} ${Date.now()}`);
 
@@ -14,6 +15,8 @@ test("resolution is blocked until an action is completed, then succeeds", async 
   await page.getByText(ticket.ticketNumber).click();
 
   const status = page.getByLabel(/Current Status/i);
+  // Wait for the ticket to load before reading the options.
+  await expect(status.locator("option")).toHaveCount(4);
   // NEW → only Open / In Progress / Cancelled are offered (§9).
   const options = await status.locator("option").evaluateAll((els) => els.map((e) => (e as HTMLOptionElement).value));
   expect(options).toEqual(["NEW", "OPEN", "IN_PROGRESS", "CANCELLED"]);
