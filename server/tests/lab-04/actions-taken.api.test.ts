@@ -172,12 +172,14 @@ describe("Lab 4 Actions Taken API", () => {
     expect(done.body.data.status).toBe("COMPLETED");
     expect(done.body.data.completedAt).not.toBeNull();
 
+    // Build each request only when it is awaited: supertest starts a server
+    // per request, so creating them all up front left two of them unreachable.
     for (const call of [
-      agent.patch(`/api/staff/actions/${action.id}`).send({ result: "late edit", version: 2 }),
-      agent.post(`/api/staff/actions/${action.id}/complete`).send({ version: 2 }),
-      agent.post(`/api/staff/actions/${action.id}/cancel`).send({ version: 2 }),
+      () => agent.patch(`/api/staff/actions/${action.id}`).send({ result: "late edit", version: 2 }),
+      () => agent.post(`/api/staff/actions/${action.id}/complete`).send({ version: 2 }),
+      () => agent.post(`/api/staff/actions/${action.id}/cancel`).send({ version: 2 }),
     ]) {
-      const res = await call;
+      const res = await call();
       expect(res.status).toBe(409);
       expect(res.body.error.code).toBe("ACTION_NOT_EDITABLE");
     }

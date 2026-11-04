@@ -45,8 +45,9 @@ describe("Lab 4 migration: legacy data is preserved", () => {
       new URL("../../prisma/migrations/20261104000000_lab4_actions_taken/migration.sql", import.meta.url),
       "utf8"
     );
-    // "ON UPDATE CASCADE" is a foreign-key option, not a data UPDATE.
-    const statements = sql.replace(/--.*$/gm, "").replace(/ON UPDATE CASCADE/g, "");
+    // "ON DELETE RESTRICT" / "ON UPDATE CASCADE" are foreign-key options,
+    // not data-modifying statements, so strip them before checking.
+    const statements = sql.replace(/--.*$/gm, "").replace(/ON (DELETE|UPDATE) (RESTRICT|CASCADE)/g, "");
     expect(statements).not.toMatch(/\b(DROP|DELETE|TRUNCATE|UPDATE)\b/i);
     expect(statements).toMatch(/ADD COLUMN "version" INTEGER NOT NULL DEFAULT 1/);
   });
