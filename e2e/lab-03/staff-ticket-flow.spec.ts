@@ -49,7 +49,13 @@ test.describe("IT Staff Ticket Queue", () => {
   test("status filter narrows the queue", async ({ page }, testInfo) => {
     await loginStaff(page);
     await page.getByRole("combobox").first().selectOption("RESOLVED");
-    await expect(page.getByText("TKT-2026-000003")).toBeVisible();
+    // Lab 4: other runs add newer Resolved tickets, so seeded TKT-2026-000003
+    // may sit on page 2. Assert the filter itself: every listed row is Resolved.
+    const rows = page.locator("tbody tr");
+    await expect(rows.first()).toBeVisible();
+    const statuses = await rows.locator("td:nth-child(6)").allInnerTexts();
+    expect(statuses.length).toBeGreaterThan(0);
+    for (const s of statuses) expect(s).toMatch(/resolved/i);
     await page.screenshot({ path: `artifacts/lab-03/screenshots/staff-queue/filter/${testInfo.project.name}.png`, fullPage: true });
   });
 
