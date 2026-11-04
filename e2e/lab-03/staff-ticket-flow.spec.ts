@@ -20,10 +20,21 @@ async function loginStaff(page: import("@playwright/test").Page) {
   await expect(page.getByRole("heading", { name: /ticket queue/i })).toBeVisible();
 }
 
+// Lab 4: the shared dev database now holds more tickets (Lab 4 seed + tickets
+// created by every E2E run), so a seeded ticket is no longer guaranteed to be
+// on page 1 of the queue. Search for it by number before opening it.
+async function openSeededTicket(page: import("@playwright/test").Page, ticketNumber: string) {
+  await page.getByPlaceholder(/search by ticket number or summary/i).fill(ticketNumber);
+  await page.getByText(ticketNumber, { exact: true }).click();
+}
+
 test.describe("IT Staff Ticket Queue", () => {
   test("shows the realistic seeded queue with badges and ownership", async ({ page }, testInfo) => {
     await loginStaff(page);
-    await expect(page.getByText("TKT-2026-000001")).toBeVisible();
+    // Lab 4: assert the seeded queue renders rows rather than a fixed ticket
+    // on page 1 (other E2E runs add newer tickets to the shared dev DB).
+    await expect(page.locator("tbody tr").first()).toBeVisible();
+    await expect(page.getByText(/\(\d+ tickets\)/)).toBeVisible();
     await page.screenshot({ path: `artifacts/lab-03/screenshots/staff-queue/${testInfo.project.name}.png`, fullPage: true });
   });
 
@@ -52,14 +63,14 @@ test.describe("IT Staff Ticket Queue", () => {
     // table and the one inside this no-results message) — scope to the one
     // inside the message so the click isn't ambiguous.
     await noResults.getByRole("button", { name: /clear filters/i }).click();
-    await expect(page.getByText("TKT-2026-000001")).toBeVisible();
+    await expect(page.locator("tbody tr").first()).toBeVisible();
   });
 });
 
 test.describe("IT Staff Ticket Detail", () => {
   async function openUnassignedTicket(page: import("@playwright/test").Page) {
     await loginStaff(page);
-    await page.getByText("TKT-2026-000002").click();
+    await openSeededTicket(page, "TKT-2026-000002");
     await expect(page.getByText(/Public Comments/i)).toBeVisible();
   }
 
@@ -90,7 +101,7 @@ test.describe("IT Staff Ticket Detail", () => {
 
   test("changing IT Priority persists the new value", async ({ page }, testInfo) => {
     await loginStaff(page);
-    await page.getByText("TKT-2026-000001").click();
+    await openSeededTicket(page, "TKT-2026-000001");
     await page.getByLabel(/IT Priority/i).selectOption("HIGH");
     await expect(page.getByLabel(/IT Priority/i)).toHaveValue("HIGH");
     await page.screenshot({ path: `artifacts/lab-03/screenshots/staff-ticket-detail/priority-change/${testInfo.project.name}.png`, fullPage: true });
@@ -98,7 +109,7 @@ test.describe("IT Staff Ticket Detail", () => {
 
   test("a valid status transition succeeds", async ({ page }, testInfo) => {
     await loginStaff(page);
-    await page.getByText("TKT-2026-000001").click();
+    await openSeededTicket(page, "TKT-2026-000001");
     await page.getByLabel(/Current Status/i).selectOption("WAITING_FOR_REQUESTER");
     await expect(page.getByLabel(/Current Status/i)).toHaveValue("WAITING_FOR_REQUESTER");
     await page.screenshot({ path: `artifacts/lab-03/screenshots/staff-ticket-detail/status-change/${testInfo.project.name}.png`, fullPage: true });
@@ -106,7 +117,7 @@ test.describe("IT Staff Ticket Detail", () => {
 
   test("posting a public comment appears immediately", async ({ page }, testInfo) => {
     await loginStaff(page);
-    await page.getByText("TKT-2026-000001").click();
+    await openSeededTicket(page, "TKT-2026-000001");
     const text = `E2E comment ${Date.now()}`;
     await page.getByPlaceholder(/type your comment here/i).fill(text);
     await page.getByRole("button", { name: /post comment/i }).click();
@@ -116,7 +127,7 @@ test.describe("IT Staff Ticket Detail", () => {
 
   test("posting an internal note appears in the notes panel only", async ({ page }, testInfo) => {
     await loginStaff(page);
-    await page.getByText("TKT-2026-000001").click();
+    await openSeededTicket(page, "TKT-2026-000001");
     const text = `E2E internal note ${Date.now()}`;
     await page.getByPlaceholder(/add an internal note/i).fill(text);
     await page.getByRole("button", { name: /add note/i }).click();
